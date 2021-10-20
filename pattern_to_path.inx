@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+	<_name>Pattern to Path</_name>
+	<id>com.catherineh.filter.pattern_to_path</id>
+	<dependency type="executable" location="extensions">pattern_to_path.py</dependency>
+	<dependency type="executable" location="extensions">inkex.py</dependency>
+	<effect>
+		<object-type>all</object-type>
+		<effects-menu>
+			<submenu _name="Modify Path" />
+		</effects-menu>
+	</effect>
+	<script>
+		<command reldir="extensions" interpreter="python">pattern_to_path.py</command>
+	</script>
+</inkscape-extension>

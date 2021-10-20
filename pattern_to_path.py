@@ -12,7 +12,7 @@ class PatternToPath(inkex.EffectExtension):
     def effect(self):
         self.get_all_patterns(self.document.getroot())
         if self.svg.selected:
-            for _id, shape in self.svg.selected.items():
+            for _, shape in self.svg.selected.items():
                 self.recursive_pattern_to_path(shape)
         else:
             self.recursive_pattern_to_path(self.document.getroot())
@@ -20,32 +20,32 @@ class PatternToPath(inkex.EffectExtension):
     def get_all_patterns(self, node):
         if node.tag.find('pattern') >= 0:
             _id = node.attrib.get('id')
-            width = node.attrib.get('width', None)
-            height = node.attrib.get('height', None)
-            pattern_transform = node.attrib.get('patternTransform', None)
-            paths = node.getchildren()
             self._patterns[_id] = node
-            print(width, height, pattern_transform, paths)
         else:
             for child in node.getchildren():
                 self.get_all_patterns(child)
 
+    def recursive_find_pattern(self, pattern_id):
+        pattern = self._patterns[pattern_id]
+        href_tag = '{http://www.w3.org/1999/xlink}href'
+        if href_tag in pattern.attrib:
+            return self.recursive_find_pattern(pattern.attrib[href_tag][1:])
+        if "width" not in pattern.attrib or "height" not in pattern.attrib:
+            raise KeyError("missing attributes in ", pattern.attrib)
+        return pattern
+
+
     def recursive_pattern_to_path(self, node):
-        print("in recursive pattern to path", node)
         if node.tag.find('path') >= 0:
             style = node.attrib.get('style')
-            style_attributes = {part.split(":")[0]: part.split(":")[1] for part in style.split(';')}
-            if 'fill' not in style_attributes:
-                return
-            if style_attributes['fill'].find("url(") != 0:
-                return
-            pattern_id = style_attributes['fill'].replace("url(#", "")[:-1]
+            inkex_style = dict(inkex.styles.Style().parse_str(style))
+            if 'fill' not in inkex_style:
+                inkex.utils.errormsg("no 'fill' in inkex style")
+            if inkex_style['fill'].find("url(") != 0:
+                inkex.utils.errormsg("fill does not contain a pattern reference")
+            pattern_id = inkex_style['fill'].replace("url(#", "")[:-1]
             container_path = node.attrib.get('d')
-            # TODO: figure out how to take the intersection between paths
-            print(pattern_id, self._patterns[pattern_id])
-            pattern = self._patterns[pattern_id]
-            if "width" not in pattern.attrib or "height" not in pattern.attrib:
-                raise KeyError("missing attributes in ", pattern.attrib)
+            pattern = self.recursive_find_pattern(pattern_id)
             pattern_width = pattern.attrib["width"]
             pattern_height = pattern.attrib["height"]
             
@@ -55,19 +55,23 @@ class PatternToPath(inkex.EffectExtension):
             repeating_patterns = []
             for pattern_vector in pattern.getchildren():
                 if 'd' not in pattern_vector.attrib:
+                    # TODO: autoconvert using pylivarot
                     inkex.utils.errormsg(
                     "Shape %s (%s) not yet supported, try Object to path first"
                     % (pattern_vector.TAG, pattern_vector.get("id"))
                 )
                 pattern_intersection = sp_pathvector_boolop(repeating_box, py2geom.parse_svg_path(pattern_vector.attrib['d']), bool_op.bool_op_inters, FillRule.fill_oddEven, FillRule.fill_oddEven)
                 repeating_patterns.append(pattern_intersection)
-            bounding_box = container_path.bounding_box()
+            node.path = inkex.paths.CubicSuperPath(repeating_patterns).to_path(curves_only=False)
+            del inkex_style['fill']
+            node.set('style', str(inkex_style))
+            # bounding_box = container_path.bounding_box()
                       
         elif node.tag in [inkex.addNS('rect', 'svg'),
                           inkex.addNS('text', 'svg'),
                           inkex.addNS('image', 'svg'),
                           inkex.addNS('use', 'svg')]:
-            # this was copied from apply transforms
+            # this was copied from apply transforms - TODO: autoconvert to path using pylivarot
             inkex.utils.errormsg(
                 "Shape %s (%s) not yet supported, try Object to path first"
                 % (node.TAG, node.get("id"))

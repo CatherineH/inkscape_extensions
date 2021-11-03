@@ -20,3 +20,5 @@ class TestPatternToPath(TestCase):
         new_path = effect.svg.getElement('//svg:path').path
         assert len(new_path) > len(old_path)
 
+if __name__ == "__main__":
+    TestPatternToPath().test_basic()

@@ -18,6 +18,17 @@ class TestPatternToPath(TestCase):
         effect.run(args)
         old_path = effect.original_document.getroot().getElement('//svg:path').path
         new_path = effect.svg.getElement('//svg:path').path
+        effect.save(open("output/pattern_test_output.svg","wb"))
+        assert len(new_path) > len(old_path)
+
+    def test_w3_basic(self):
+        args = ['--id=rect10',
+                self.data_file('w3_example.svg')]
+        effect = self.effect_class()
+        effect.run(args)
+        old_path = effect.original_document.getroot().getElement('//svg:path').path
+        new_path = effect.svg.getElement('//svg:path').path
+        effect.save(open("output/w3_example_output.svg","wb"))
         assert len(new_path) > len(old_path)
 
 if __name__ == "__main__":

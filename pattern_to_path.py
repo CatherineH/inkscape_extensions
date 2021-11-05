@@ -3,6 +3,11 @@ import inkex
 from pylivarot import sp_pathvector_boolop, bool_op, FillRule, py2geom
 from svgpathtools.svg_to_paths import rect2pathd
 
+def transform_path_vector(pv, affine_t):
+    for _path in pv:
+        for _curve in _path:
+            _curve.transform(affine_t)
+    return pv
 
 def pattern_vector_to_d(pattern_vector):
     if pattern_vector.TAG == "rect":
@@ -35,10 +40,11 @@ class PatternToPath(inkex.EffectExtension):
             for child in node.getchildren():
                 self.get_all_patterns(child)
 
-    def recursive_find_pattern(self, pattern_id, transf=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]):
+    def recursive_find_pattern(self, pattern_id, transf=None):
         pattern = self._patterns[pattern_id]
-        # need to combine transforms
-        transf = inkex.transforms.Transform(transf) * inkex.transforms.Transform(pattern.get("transform", None))
+        # SVG seems to only respect the first patternTransform
+        if not transf:
+            transf = inkex.transforms.Transform(pattern.get("patternTransform", None))
         href_tag = '{http://www.w3.org/1999/xlink}href'
         if href_tag in pattern.attrib:
             return self.recursive_find_pattern(pattern.attrib[href_tag][1:], transf)
@@ -61,13 +67,17 @@ class PatternToPath(inkex.EffectExtension):
                 container_path = pattern_vector_to_d(node)
             container_bbox = inkex.Path(container_path).bounding_box()
             pattern, pattern_transform = self.recursive_find_pattern(pattern_id)
-            pattern_width = pattern.attrib["width"]
-            pattern_height = pattern.attrib["height"]
-            
+            pattern_width = float(pattern.attrib["width"])
+            pattern_height = float(pattern.attrib["height"])
             d = f'M 0,0 L {pattern_width},0 L {pattern_width},{pattern_height} L 0,{pattern_height} L 0,0'
 
             repeating_box = py2geom.parse_svg_path(d) 
-            repeating_patterns = ""
+            affine_pattern_transform = py2geom.Affine(pattern_transform.a, pattern_transform.b, pattern_transform.c, pattern_transform.d, pattern_transform.e, pattern_transform.f)
+            repeating_box = transform_path_vector(repeating_box, affine_pattern_transform)
+            repeating_bbox = repeating_box.boundsFast()
+            repeating_bbox = py2geom.Rect(repeating_bbox[py2geom.Dim2.X], repeating_bbox[py2geom.Dim2.Y])
+            repeating_patterns = []
+            pattern_styles = []
             for pattern_vector in pattern.getchildren():
                 if 'd' not in pattern_vector.attrib:
                     # TODO: autoconvert using pylivarot
@@ -75,65 +85,50 @@ class PatternToPath(inkex.EffectExtension):
                 else:
                     d_string = pattern_vector.attrib['d']
                 pattern_intersection = sp_pathvector_boolop(repeating_box, py2geom.parse_svg_path(d_string), bool_op.bool_op_inters, FillRule.fill_oddEven, FillRule.fill_oddEven)
-                repeating_patterns += py2geom.write_svg_path(pattern_intersection)
-            pattern_path = inkex.Path(repeating_patterns).transform(pattern_transform)
-            pattern_bounding_box = pattern_path.bounding_box()
+                pattern_intersection = transform_path_vector(pattern_intersection, affine_pattern_transform)
+                # TODO: apply styles to individual components of the pattern
+                #repeating_patterns.append(pattern_intersection)
+                repeating_patterns = pattern_intersection
+                pattern_style = dict(inkex.styles.Style().parse_str(pattern_vector.attrib.get("style")))
+                pattern_style['stroke-width'] = float(pattern_style['stroke-width'])*affine_pattern_transform.expansionX()
+                pattern_styles.append(pattern_style)
+
+            # need to get the bounding box from the bounding box
             pattern_x = container_bbox.left
             pattern_y = container_bbox.top
+            pattern_repeats = py2geom.PathVector()
             
-            pattern_repeats = inkex.paths.Path()
-            while pattern_x < container_bbox.left + container_bbox.width:
+            while pattern_x <= container_bbox.left + container_bbox.width:
                 pattern_y = container_bbox.top
                 num_y_translations = 0
-                while pattern_y < container_bbox.top + container_bbox.height:
-                    pattern_path.translate(0, pattern_bounding_box.height, inplace=True)
-                    pattern_repeats += pattern_path.to_absolute()
-                    #print(pattern_x, pattern_y, pattern_path)
+                while pattern_y <= container_bbox.top + container_bbox.height:
+                    _affine = py2geom.Affine()
+                    _affine *= py2geom.Translate(0, repeating_bbox.height())
+                    repeating_patterns = transform_path_vector(repeating_patterns, _affine)
+                    if pattern_repeats.curveCount() == 0:
+                        pattern_repeats = repeating_patterns
+                    pattern_repeats = sp_pathvector_boolop(repeating_patterns, pattern_repeats, bool_op.bool_op_union, FillRule.fill_oddEven, FillRule.fill_oddEven)
+                    assert pattern_repeats.curveCount() >= repeating_box.curveCount(), f"curve counts {pattern_repeats.curveCount()} {repeating_box.curveCount()}"
                     num_y_translations += 1
-                    pattern_y += pattern_bounding_box.height
-                pattern_path.translate(pattern_bounding_box.width, -num_y_translations*pattern_bounding_box.height, inplace=True)
-                
-                pattern_x += pattern_bounding_box.width 
-            pattern_repeats = inkex.paths.CubicSuperPath(pattern_repeats).to_path(curves_only=False)
-            _path_builder = py2geom.PathBuilder()
-            control_points = [py2geom.Point(_point.x, _point.y) for _point in pattern_repeats.control_points]
-            print("number of segments: ", len(pattern_repeats))
+                    pattern_y += repeating_bbox.height()
+                _affine = py2geom.Affine()
+                _affine *= py2geom.Translate(repeating_bbox.width(), -num_y_translations*repeating_bbox.height())
+                repeating_patterns = transform_path_vector(repeating_patterns, _affine)
+                pattern_x += repeating_bbox.width() 
             
-            for _segment in pattern_repeats:
-                if isinstance(_segment, inkex.paths.Move):
-                    _path_builder.moveTo(control_points.pop(0))
-                elif isinstance(_segment, inkex.paths.Line):
-                    _path_builder.lineTo(control_points.pop(0))
-                elif isinstance(_segment, inkex.paths.Quadratic):
-                    _path_builder.quadTo(control_points.pop(0), control_points.pop(0))
-                elif isinstance(_segment, inkex.paths.Curve):
-                    _path_builder.curveTo(control_points.pop(0), control_points.pop(0), control_points.pop(0))
-                elif isinstance(_segment, inkex.paths.ZoneClose):
-                    _path_builder.flush()
-                else:
-                    raise ValueError("not sure what to do with: ", _segment)
-            _path_builder.flush()
-            pattern_repeats_pv = _path_builder.peek()
-
-            container_intersection = sp_pathvector_boolop(py2geom.parse_svg_path(container_path), pattern_repeats_pv, 
+            container_intersection = sp_pathvector_boolop(py2geom.parse_svg_path(container_path), pattern_repeats, 
                     bool_op.bool_op_inters, FillRule.fill_oddEven, FillRule.fill_oddEven)
-            node.path = inkex.paths.CubicSuperPath(py2geom.write_svg_path(container_intersection)).to_path(curves_only=False)
+            node.set_path(py2geom.write_svg_path(container_intersection))
+            node.set('style', pattern_styles[0])
             del inkex_style['fill']
-            node.set('style', str(inkex_style))
-            node_pattern_repeats = inkex.elements.PathElement()
-            node_pattern_repeats.set_path(pattern_repeats)
-            node_pattern_repeats.set('style', str(inkex_style))
-            node_pattern_repeats.set('id', 'node-pattern-repeats')
-            node_container_path = inkex.elements.PathElement()
-            node_container_path.set_path(container_path)
-            node_container_path.set('style', str(inkex_style))
-            node_container_path.set('id', 'node-container-paths')
-            
-            node.getparent().insert(0, node_pattern_repeats)
-            node.getparent().insert(0, node_container_path)
-            print(type(self.document))
-            # bounding_box = container_path.bounding_box()
-                      
+            # for debug
+            '''
+            node_container = inkex.elements.PathElement()
+            node_container.set_path(container_path)
+            node_container.set('style', "fill:none;stroke:black;stroke-width:2")
+            node_container.set('id', 'container-path')            
+            node.getparent().insert(0, node_container)
+            '''       
         elif node.tag in [inkex.addNS('text', 'svg'),
                           inkex.addNS('image', 'svg'),
                           inkex.addNS('use', 'svg')]:

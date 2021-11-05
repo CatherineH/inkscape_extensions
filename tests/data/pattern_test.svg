@@ -23,12 +23,12 @@
        inkscape:collect="always"
        xlink:href="#Strips1_1"
        id="pattern5976"
-       patternTransform="matrix(10,0,0,10,11.339286,0)" />
+       patternTransform="scale(10, 10)" />
     <pattern
        inkscape:isstock="true"
        inkscape:stockid="Stripes 1:1"
        id="Strips1_1"
-       patternTransform="translate(0,0) scale(10,10)"
+       patternTransform="translate(0,0) scale(1,1)"
        height="1"
        width="2"
        patternUnits="userSpaceOnUse"
@@ -39,7 +39,7 @@
          width="1"
          y="-0.5"
          x="0"
-         style="fill:black;stroke:none" />
+         style="fill:black;stroke:red;stroke-width:0.1" />
     </pattern>
     <linearGradient
        id="linearGradient5970"
@@ -68,7 +68,8 @@
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:pagecheckerboard="0" />
+     inkscape:pagecheckerboard="0"
+     showguides="true" />
   <metadata
      id="metadata5">
     <rdf:RDF>
@@ -87,7 +88,7 @@
      id="layer1">
     <path
        id="rect10"
-       style="fill:url(#pattern5976);stroke-width:0.264583"
-       d="M 70.303574,86.089287 H 173.86904 V 182.8512 H 70.303574 Z" />
+       style="fill:url(#pattern5976);stroke-width:0.186481"
+       d="M 10,10 H 110 V 110 H 10 Z" />
   </g>
 </svg>

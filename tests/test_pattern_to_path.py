@@ -2,11 +2,11 @@
 
 import sys
 from os.path import dirname, abspath
-from inkex.utils import filename_arg
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from pattern_to_path import PatternToPath
 from inkex.tester import TestCase
+import inkex
 
 
 class TestPatternToPath(TestCase):
@@ -22,14 +22,33 @@ class TestPatternToPath(TestCase):
         assert len(new_path) > len(old_path)
 
     def test_w3_basic(self):
-        args = ['--id=rect10',
+        args = ['--id=w3rect',
                 self.data_file('w3_example.svg')]
         effect = self.effect_class()
         effect.run(args)
-        old_path = effect.original_document.getroot().getElement('//svg:path').path
-        new_path = effect.svg.getElement('//svg:path').path
+        pattern_object1 = effect.svg.getElementById('pattern-path-w3rect1')
+        pattern_object2 = effect.svg.getElementById('pattern-path-w3rect2')
+        pattern_object3 = effect.svg.getElementById('pattern-path-w3rect3')
         effect.save(open("output/w3_example_output.svg","wb"))
-        assert len(new_path) > len(old_path)
+        
+        assert pattern_object1 is not None
+        style_dict = dict(inkex.styles.Style().parse_str(pattern_object1.attrib.get("style")))
+        assert style_dict.get('fill') == "skyblue"
+        segments = [segment for segment in pattern_object1.path if isinstance(segment, inkex.paths.zoneClose)]
+        assert len(segments) == 1
+
+        assert pattern_object2 is not None
+        style_dict = dict(inkex.styles.Style().parse_str(pattern_object2.attrib.get("style")))
+        assert style_dict.get('fill') == "url(#Gradient2)"
+        segments = [segment for segment in pattern_object2.path if isinstance(segment, inkex.paths.zoneClose)]
+        assert len(segments) == 16
+
+        assert pattern_object3 is not None
+        style_dict = dict(inkex.styles.Style().parse_str(pattern_object3.attrib.get("style")))
+        assert style_dict.get('fill') == "url(#Gradient1)"
+        segments = [segment for segment in pattern_object3.path if isinstance(segment, inkex.paths.zoneClose)]
+        assert len(segments) == 16
+        
 
 if __name__ == "__main__":
-    TestPatternToPath().test_basic()
+    TestPatternToPath().test_w3_basic()

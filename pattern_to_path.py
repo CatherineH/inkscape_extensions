@@ -73,15 +73,14 @@ class PatternToPath(inkex.EffectExtension):
             num_y_translations = 0
             
             while pattern_y <= container_bbox.top + container_bbox.height:
-                print("loc", pattern_x, pattern_y)
                 _affine = py2geom.Affine()
                 _affine *= py2geom.Translate(0, repeating_bbox.height())
-                repeating_pattern = transform_path_vector(repeating_pattern, _affine)
                 if pattern_repeats.curveCount() == 0:
-                    pattern_repeats = repeating_pattern
+                    pattern_repeats = repeating_pattern    
                 pattern_repeats = sp_pathvector_boolop(repeating_pattern, pattern_repeats, bool_op.bool_op_union, FillRule.fill_oddEven, FillRule.fill_oddEven)
                 assert pattern_repeats.curveCount() >= repeating_box.curveCount(), f"curve counts {pattern_repeats.curveCount()} {repeating_box.curveCount()}"
                 num_y_translations += 1
+                repeating_pattern = transform_path_vector(repeating_pattern, _affine)
                 pattern_y += repeating_bbox.height()
             _affine = py2geom.Affine()
             _affine *= py2geom.Translate(repeating_bbox.width(), -num_y_translations*repeating_bbox.height())
@@ -145,11 +144,13 @@ class PatternToPath(inkex.EffectExtension):
                 self.current_pattern_part = i+1
                 self.generate_pattern_path(node, container_path, repeating_box, repeating_patterns[i], pattern_styles[i])
             # for debug
+            '''
             node_container = inkex.elements.PathElement()
             node_container.set_path(container_path)
             node_container.set('style', "fill:none;stroke:black;stroke-width:2")
             node_container.set('id', 'container-path')            
             node.getparent().insert(0, node_container)
+            '''
                    
         elif node.tag in [inkex.addNS('text', 'svg'),
                           inkex.addNS('image', 'svg'),

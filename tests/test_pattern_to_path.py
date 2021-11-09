@@ -17,7 +17,7 @@ class TestPatternToPath(TestCase):
         effect = self.effect_class()
         effect.run(args)
         old_path = effect.original_document.getroot().getElement('//svg:path').path
-        new_path = effect.svg.getElement('//svg:path').path
+        new_path = effect.svg.getElementById('pattern-path-rect101').path
         effect.save(open("output/pattern_test_output.svg","wb"))
         assert len(new_path) > len(old_path)
 

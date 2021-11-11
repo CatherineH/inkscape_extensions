@@ -13,4 +13,5 @@
 	<script>
 		<command reldir="extensions" interpreter="python">pattern_to_path.py</command>
 	</script>
+	<param name="remove" type="bool" default="True" gui-text="Remove existing shape" />
 </inkscape-extension>

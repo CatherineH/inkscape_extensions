@@ -12,14 +12,26 @@ import inkex
 class TestPatternToPath(TestCase):
     effect_class = PatternToPath
     def test_basic(self):
-        args = ['--id=rect10',
+        target = 'rect10'
+        args = [f'--id={target}',
                 self.data_file('pattern_test.svg')]
         effect = self.effect_class()
         effect.run(args)
-        old_path = effect.original_document.getroot().getElement('//svg:path').path
-        new_path = effect.svg.getElementById('pattern-path-rect101').path
+        old_path = effect.svg.getElementById(target).path
+        new_path = effect.svg.getElementById(f'pattern-path-{target}1').path
         effect.save(open("output/pattern_test_output.svg","wb"))
         assert len(new_path) > len(old_path)
+
+    def test_remove(self):
+        target = 'w3rect'
+        args = [f'--id={target}', '--remove', 'true', self.data_file('w3_example.svg')]
+        effect = self.effect_class()
+        effect.run(args)
+        effect.save(open("output/w3_example_output_remove.svg","wb"))
+        new_path = effect.svg.getElementById(f'pattern-path-{target}1').path
+        assert new_path
+        old_path = effect.svg.getElementById(target)
+        assert old_path is None        
 
     def test_w3_basic(self):
         args = ['--id=w3rect',

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import inkex
+import sys
 from pylivarot import sp_pathvector_boolop, bool_op, FillRule, py2geom
 from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
 
@@ -28,7 +29,12 @@ class PatternToPath(inkex.EffectExtension):
         self.current_path = 1
         self.current_pattern_part = 1
 
+    def add_arguments(self, pars):
+        pars.add_argument("--remove", type=str, default='false',
+                          help="Remove the existing path")
+
     def effect(self):
+        print("args", sys.argv[1:])
         self.get_all_patterns(self.document.getroot())
         if self.svg.selected:
             for _, shape in self.svg.selected.items():
@@ -95,7 +101,12 @@ class PatternToPath(inkex.EffectExtension):
         node_pattern.set('style', pattern_style)
         unknown_name = f"unknown-{self.current_path}"
         node_pattern.set('id', f'pattern-path-{node.get("id", unknown_name)}{self.current_pattern_part}')
-        parent.insert(0, node_pattern)
+        if self.options.remove == 'true':
+            node.delete()
+        if parent is not None:
+            parent.insert(0, node_pattern)
+        else:
+            self.document.getroot().insert(0, node_pattern)
 
     def recursive_pattern_to_path(self, node):
         if node.tag in [inkex.addNS('rect', 'svg'), inkex.addNS('path', 'svg')]:
@@ -140,7 +151,6 @@ class PatternToPath(inkex.EffectExtension):
                         pattern_style[attrib] = pattern_vector.attrib[attrib]
                 pattern_styles.append(pattern_style)
             for i in range(len(pattern_styles)-1, -1, -1):
-                print("index", i)
                 self.current_pattern_part = i+1
                 self.generate_pattern_path(node, container_path, repeating_box, repeating_patterns[i], pattern_styles[i])
             # for debug

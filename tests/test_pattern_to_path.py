@@ -1,7 +1,7 @@
 # add the root level extensions folder to the PYTHONPATH
 
 import sys
-from os.path import dirname, abspath
+from os.path import dirname, abspath, join
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from pattern_to_path import PatternToPath
@@ -34,7 +34,7 @@ class TestPatternToPath(TestCase):
         assert old_path is None        
 
     def test_w3_basic(self):
-        args = ['--id=w3rect',
+        args = ['--id=w3rect', '--remove', 'true',
                 self.data_file('w3_example.svg')]
         effect = self.effect_class()
         effect.run(args)
@@ -61,6 +61,34 @@ class TestPatternToPath(TestCase):
         segments = [segment for segment in pattern_object3.path if isinstance(segment, inkex.paths.zoneClose)]
         assert len(segments) == 16
         
+    def test_no_fill(self):
+        args = ['--id=rect1', '--remove', 'true',
+                self.data_file('no_fill.svg')]
+        effect = self.effect_class()
+        effect.run(args)
+        output = effect.svg.getElementById('rect1')
+        assert output is not None
+
+    def test_no_pattern_fill(self):
+        args = ['--id=rect2', '--remove', 'true',
+                self.data_file('no_fill.svg')]
+        effect = self.effect_class()
+        effect.run(args)
+        output = effect.svg.getElementById('rect2')
+        assert output is not None
+
+    def test_complicated(self):
+        full_filename = join(dirname(abspath(__file__)), "data", "blockcc855_pattern.svg")
+        print(full_filename)
+        pattern = "blackblocks"
+        args = [f'--id={pattern}',full_filename]
+        print(args)
+        effect = self.effect_class()
+        effect.run(args)
+        effect.save(open("output/blockcc855_pattern_output.svg","wb"))
+        pattern_object1 = effect.svg.getElementById(f'pattern-path-{pattern}1')
+        assert len(pattern_object1.path) > 0
+    
 
 if __name__ == "__main__":
-    TestPatternToPath().test_w3_basic()
+    TestPatternToPath().test_complicated()

@@ -1,5 +1,4 @@
 # add the root level extensions folder to the PYTHONPATH
-
 import sys
 from os.path import dirname, abspath, join
 sys.path.append(dirname(dirname(abspath(__file__))))
@@ -81,13 +80,16 @@ class TestPatternToPath(TestCase):
         full_filename = join(dirname(abspath(__file__)), "data", "blockcc855_pattern.svg")
         print(full_filename)
         pattern = "blackblocks"
-        args = [f'--id={pattern}',full_filename]
+        args = [f'--id={pattern}', '--boundaries', 'true', full_filename]
         print(args)
         effect = self.effect_class()
         effect.run(args)
         effect.save(open("output/blockcc855_pattern_output.svg","wb"))
         pattern_object1 = effect.svg.getElementById(f'pattern-path-{pattern}1')
         assert len(pattern_object1.path) > 0
+        container_path = effect.svg.getElementById("container-pattern-path-blackblocks1")
+        print(container_path.shape_box())
+        assert container_path.shape_box().height > 100
     
 
 if __name__ == "__main__":

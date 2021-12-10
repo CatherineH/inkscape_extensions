@@ -19,7 +19,7 @@ class TestGradientToPath(TestCase):
         effect.save(open("output/w3_linear_gradient_rect2.svg","wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f'gradient-red_1').path
-        effect.save(open(f"output/out_{_file}","wb"))
+        assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
         assert len(new_path) > len(old_path)
 
     def test_css_trct(self):
@@ -32,5 +32,9 @@ class TestGradientToPath(TestCase):
         effect.save(open("output/w3_linear_gradient_rect1.svg","wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f'gradient-red_1').path
-        effect.save(open(f"output/out_{_file}","wb"))
+        assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
         assert len(new_path) > len(old_path)
+
+if __name__ == "__main__":
+    TestGradientToPath().test_basic()
+    TestGradientToPath().test_css_trct()

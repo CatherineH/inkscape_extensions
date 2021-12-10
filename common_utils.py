@@ -27,6 +27,12 @@ def transform_path_vector(pv, affine_t):
 
 def pattern_vector_to_d(pattern_vector):
     if pattern_vector.TAG == "rect":
+        """         if "rx" in pattern_vector.attrib or "ry" in pattern_vector.attrib:
+                    inkex.utils.errormsg(
+                        "Rect %s has rounded edges, this not yet supported, try Object to path first"
+                        % (pattern_vector.get("id"))
+                    )
+                    return """
         return rect2pathd(pattern_vector.attrib)
     elif pattern_vector.TAG in ["circle", "ellipse"]:
         return ellipse2pathd(pattern_vector.attrib)

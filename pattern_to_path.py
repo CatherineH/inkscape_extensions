@@ -163,10 +163,7 @@ class PatternToPath(BaseFillExtension):
             pattern_id = get_fill_id(node)
             if not pattern_id:
                 return
-            if 'd' in node.attrib:
-                container_path = node.attrib.get('d')
-            else:
-                container_path = pattern_vector_to_d(node)
+            container_path = pattern_vector_to_d(node)
             # reset the debug information
             self._debug_pattern_list = []
             pattern, pattern_transform = self.recursive_find_pattern(pattern_id)

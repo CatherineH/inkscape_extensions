@@ -1,0 +1,3 @@
+[submodule "applytransforms"]
+	path = applytransforms
+	url = https://github.com/Klowner/inkscape-applytransforms

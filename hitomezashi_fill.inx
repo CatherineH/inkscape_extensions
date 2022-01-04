@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+	<_name>Hitomezashi Fill</_name>
+	<id>com.catherineh.filter.hitomezashi_fill</id>
+	<dependency type="executable" location="extensions">hitomezashi_fill.py</dependency>
+	<dependency type="executable" location="extensions">inkex.py</dependency>
+	<effect>
+		<object-type>all</object-type>
+		<effects-menu>
+			<submenu _name="Modify Path" />
+		</effects-menu>
+	</effect>
+	<script>
+		<command reldir="extensions" interpreter="python">hitomezashi_fill.py</command>
+	</script>
+	<param name="length" type="float" default="1" gui-text="length of each stitch" />
+	<param name="weight_x" type="float" default="0.5" gui-text="probability that the x offset is even (default 0.5)" />
+	<param name="weight_y" type="float" default="0.5" gui-text="probability that the y offset is even (default 0.5)" />
+</inkscape-extension>

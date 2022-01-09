@@ -16,4 +16,5 @@
 	<param name="length" type="float" default="1" gui-text="length of each stitch" />
 	<param name="weight_x" type="float" default="0.5" gui-text="probability that the x offset is even (default 0.5)" />
 	<param name="weight_y" type="float" default="0.5" gui-text="probability that the y offset is even (default 0.5)" />
+	<param name="fill" type="boolean" default="false" gui-text="fill every other shape in the stitch pattern (experimental, requires pylivarot to be installed" />
 </inkscape-extension>

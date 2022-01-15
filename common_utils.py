@@ -1,7 +1,6 @@
 import inkex
-from pylivarot import py2geom
 from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
-
+import subprocess
 
 class BaseFillExtension(inkex.EffectExtension):
     def __init__(self):
@@ -14,6 +13,7 @@ class BaseFillExtension(inkex.EffectExtension):
         return parent
 
 def bounds_rect(pv):
+    from pylivarot import py2geom
     bbox = pv.boundsExact()
     return py2geom.Rect(bbox[py2geom.Dim2.X], bbox[py2geom.Dim2.Y])
 
@@ -60,3 +60,9 @@ def get_fill_id(node):
     if inkex_style['fill'] == "none":
         return
     return inkex_style['fill'].replace("url(#", "")[:-1]
+
+def debug_screen(effect, name=None):
+    name = name or str(effect)
+    filename = f"output/debug_{name}.svg"
+    effect.save(open(filename,"wb"))
+    subprocess.run(["inkview", filename])

@@ -3,6 +3,8 @@ from os.path import dirname, abspath, join
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from hitomezashi_fill import HitomezashiFill
+
+from common_utils import debug_screen
 from inkex.tester import TestCase
 import inkex
 
@@ -25,14 +27,15 @@ class TestHitomezashi(TestCase):
         args = [f'--id={target}', '--length=30', "--fill=true", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
-        effect.save(open(f"output/{target}_hitomezashi.svg","wb"))
+        debug_screen(effect, "test_heart")
+        #effect.save(open(f"output/{target}_hitomezashi.svg","wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f'hitomezashi-{target}-0').path
         assert new_path
 
 
 if __name__ == "__main__":
-    print("test_basic")
-    TestHitomezashi().test_basic()
+    #print("test_basic")
+    #TestHitomezashi().test_basic()
     print("test_heart")
     TestHitomezashi().test_heart()

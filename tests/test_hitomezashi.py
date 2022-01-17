@@ -24,7 +24,7 @@ class TestHitomezashi(TestCase):
     def test_heart(self):
         target = 'heart'
         _file = 'heart.svg'
-        args = [f'--id={target}', '--length=30', "--fill=true", self.data_file(_file)]
+        args = [f'--id={target}', '--length=30', "--fill=true", "--weight_x=0", "--weight_y=0", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
         debug_screen(effect, "test_heart")

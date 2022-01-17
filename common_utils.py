@@ -1,5 +1,6 @@
 import inkex
 from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
+from svgpathtools import Path
 import subprocess
 
 class BaseFillExtension(inkex.EffectExtension):
@@ -66,3 +67,14 @@ def debug_screen(effect, name=None):
     filename = f"output/debug_{name}.svg"
     effect.save(open(filename,"wb"))
     subprocess.run(["inkview", filename])
+
+def combine_segments(segments):
+    # svgpathtools does not dump "Path" segments when generating d strings
+    output_path = Path()
+    for segment in segments:
+        if not isinstance(segment, Path):
+            output_path.insert(len(output_path._segments), segment)
+        else:
+            for path_segment in segment._segments:
+                output_path.insert(len(output_path._segments), path_segment)
+    return output_path

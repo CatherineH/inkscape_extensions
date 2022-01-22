@@ -3,7 +3,8 @@ from collections import defaultdict
 import inkex
 from time import time
 from math import atan
-from common_utils import pattern_vector_to_d, BaseFillExtension, debug_screen, combine_segments
+from copy import deepcopy, copy
+from common_utils import pattern_vector_to_d, BaseFillExtension, debug_screen, combine_segments, format_complex
 from random import random
 from svgpathtools import Line, Path, parse_path
 from functools import lru_cache
@@ -16,7 +17,7 @@ def intersect_over_all(line, path):
         all_intersections += [(t1, t2, i) for (t1, t2) in current_intersections]
     return all_intersections
 
-TOLERANCE = 0.1
+TOLERANCE = 0.2
 
 class HitomezashiFill(BaseFillExtension):
     def __init__(self):
@@ -29,6 +30,7 @@ class HitomezashiFill(BaseFillExtension):
         self.curr_path_num = 0
         self.current_shape = None
         self.outline_intersections = []
+        self.outline_nodes = []
         # build a graph of which edge points connect where
         self.graph = defaultdict(dict)
 
@@ -54,6 +56,17 @@ class HitomezashiFill(BaseFillExtension):
         if self.current_shape.get("transform"):
             _node.set("transform", self.current_shape.get("transform"))
         parent.insert(-1, _node)
+
+    def add_chained_line(self, chained_line, label="chained-line", color="red"):
+        segments = []
+        for i in range(1, len(chained_line)):
+            try:
+                segments.append(self.graph[chained_line[i-1]][chained_line[i]])
+            except KeyError as e:
+                self.add_marker(chained_line[i], label=f"missing-segment-{i}", color="blue")
+                self.add_marker(chained_line[i-1], label=f"missing-segment-{i}", color="green")                           
+                print(f"got key error on: {chained_line[i]} not in {self.graph.get(chained_line[i-1], {}).keys()} {self.graph[chained_line[i]].keys()}")
+        self.add_node(combine_segments(segments).d(), f"stroke:{color};stroke-width:2;fill:none", label)
     
     def add_marker(self, point, label="marker", color="red"):
         marker_size = self.options.length/10
@@ -72,7 +85,7 @@ class HitomezashiFill(BaseFillExtension):
     def chop_shape(self, lines):
         final_lines = []
         for i, line in enumerate(lines):
-            self.add_node(Path(line).d(), "stroke:blue;stroke-width:3;fill:none", f"line{i}")
+            # self.add_node(Path(line).d(), "stroke:blue;stroke-width:2", f"line{i}")
             # determine whether each point on the line is inside or outside the shape
             start_inside = self.is_inside(line.start)
             end_inside = self.is_inside(line.end)
@@ -87,8 +100,6 @@ class HitomezashiFill(BaseFillExtension):
             for (t1, t2, seg_i) in intersections:
                 self.outline_intersections.append((t2, seg_i))
                 if start_inside:
-                    if i==63:
-                        print(f"adding segment {curr_start} {line.point(t1)}")
                     final_lines.append(Line(curr_start, line.point(t1)))
                 start_inside = not start_inside
                 curr_start = line.point(t1)
@@ -96,10 +107,15 @@ class HitomezashiFill(BaseFillExtension):
                 final_lines.append(Line(curr_start, line.end))
 
         for line in final_lines:
+            if line.length() < TOLERANCE*self.options.length: # skip this one because it's too short
+                print("skipping: ", line)
+                continue 
             line.start = self.snap_nodes(line.start)
             line.end = self.snap_nodes(line.end)
+
             self.graph[line.start][line.end] = Line(line.start, line.end)
             self.graph[line.end][line.start] = Line(line.end, line.start)
+
         self.outline_intersections = list(set(self.outline_intersections))
         self.outline_intersections.sort(key= lambda x: -x[0]-x[1])
         intersections_copy = self.outline_intersections
@@ -123,11 +139,15 @@ class HitomezashiFill(BaseFillExtension):
                 if end_intersection[0] != 0:
                     segments.append(self.container[end_intersection[1]].cropped(0, end_intersection[0]))
                 segment = Path(*segments)
-            if segment.length() == 0: # skip this one because it's too short
+            if segment.length() < TOLERANCE*self.options.length: # skip this one because it's too short
                 print("skipping: ",start_intersection, end_intersection)
                 continue   
             self.graph[start][end] = segment
             self.graph[end][start] = segment.reversed()
+            if start not in self.outline_nodes:
+                self.outline_nodes.append(start)
+            if end not in self.outline_nodes:
+                self.outline_nodes.append(end)
              
             start_intersection = end_intersection
         return Path(*final_lines)
@@ -136,40 +156,75 @@ class HitomezashiFill(BaseFillExtension):
         # algorithm design
         # dump the keys in the graph into a unique list of points
         points_to_visit = list(set(self.graph.keys()))
+        points_to_visit = [point for point in points_to_visit if point not in self.outline_nodes]
         chained_line = []
         visited_points = []
+        curr_visited_points = []
         chained_lines = []
         curr_point = None
         start_time = time()
+        chain_to_inspect = 0
+        chain_piece_to_inspect = 3
         while points_to_visit:
+            if len(chained_lines) == chain_to_inspect and len(chained_line) == chain_piece_to_inspect:
+                print(f"graph traverse {format_complex(curr_point)}")
             if len(chained_line) > 0:
                 curr_point = chained_line[-1]
             if not curr_point:
                 curr_point = points_to_visit.pop()
+                chained_line = [curr_point]
+                visited_points += curr_visited_points
+                curr_visited_points = []
             
-            if len(chained_line) > 2 and chained_line[0] == curr_point:
+            if curr_point in visited_points + curr_visited_points:
+                if len(chained_lines) == chain_to_inspect:
+                    print("closing chained line because the points were visited")
+                if len(chained_line) > 1:
+                    print(f"closing chained line {len(chained_lines)}")
+                    self.plot_graph()
+                    self.add_marker(curr_point)
+                    segments = []
+                    for i in range(1, len(chained_line)):
+                        try:
+                            segments.append(self.graph[chained_line[i-1]][chained_line[i]])
+                        except KeyError as e:
+                            self.add_marker(chained_line[i], label=f"missing-segment-{i}", color="blue")
+                            self.add_marker(chained_line[i-1], label=f"missing-segment-{i}", color="green")                           
+                            print(f"got key error on: {chained_line[i]} not in {self.graph.get(chained_line[i-1], {}).keys()} {self.graph[chained_line[i]].keys()}")
+                    self.add_node(combine_segments(segments).d(), "stroke:red;stroke-width:2;fill:none", "chained_path")
+                    parent = self.get_parent(self.current_shape)
+                    parent.remove(self.current_shape)
+                    debug_screen(self, "test_closed_line")
+                    self.audit_graph()
+                    sys.exit(0)
+                    chained_lines.append(chained_line)
+                chained_line = []
+                curr_point = None
+                continue
+            curr_visited_points.append(curr_point)
+            # if the start of the chain is a possible place you can visit, close the chained line
+            if len(chained_line) > 2 and chained_line[0] in self.graph[curr_point]:
                 # the loop is closed, yippee!
+                if len(chained_lines) == chain_to_inspect:
+                    print("closing loop")
+                chained_line.append(chained_line[0])
                 chained_lines.append(chained_line)
+                visited_points += curr_visited_points
+                curr_visited_points = []
                 chained_line = []
                 curr_point = None
                 continue
-            if curr_point in visited_points:
-                inkex.utils.errormsg
-                curr_point = None
-                chained_lines.append(chained_line)
-                chained_line = []
-                continue
-            visited_points.append(curr_point)
-            branches = [point for point in self.graph[curr_point] if (len(chained_line) >= 2 and point != chained_line[-2]) or len(chained_line) < 2]
-
+            branches = [point for point in self.graph[curr_point] if point not in visited_points + curr_visited_points]
+            if len(chained_lines) == chain_to_inspect and len(chained_line) == chain_piece_to_inspect:
+                print(f"branches are {format_complex(branches)} {format_complex(self.graph[curr_point].keys())}")
             if len(branches) == 1:
                 chained_line += branches
             elif len(branches) == 2:
                 # if the previous point was on the outside, pick the point on the inside
-                if len(chained_line) >= 2 and chained_line[-2] in self.outline_intersections:
-                    if branches[0] in self.outline_intersections:
+                if len(chained_line) >= 2 and chained_line[-2] in self.outline_nodes:
+                    if branches[0] in self.outline_nodes:
                         chained_line.append(branches[1])
-                    elif branches[1] in self.outline_intersections:
+                    elif branches[1] in self.outline_nodes:
                         chained_line.append(branches[0])
                     else:
                         inkex.utils.errormsg(f"got to bad state! - last point was on outside and only two options are also outside {branches} ")
@@ -178,19 +233,37 @@ class HitomezashiFill(BaseFillExtension):
                         if len(chained_line) > 1:
                             self.add_marker(chained_line[-2], "last_point")
                         self.add_marker(curr_point, "curr_point", "blue")
-                        all_graph_segments = [segment for branch in self.graph.values() for segment in branch.values()]
-                        self.add_node(Path(*all_graph_segments).d(), "stroke:gray;stroke-width:2;fill:none", "graph")
+                        self.plot_graph()
                 
                         debug_screen(self, "test_outside")
                         sys.exit(0)
                 else: # if the previous point was on the inside, pick the clockwise outside location
                     last_point = chained_line[-2] if len(chained_line) >= 2 else 0
-                    angle1 = atan(abs(last_point-curr_point)/abs(branches[0]-curr_point))
-                    angle2 = atan(abs(last_point-curr_point)/abs(branches[0]-curr_point))
+                    unit_root = last_point - curr_point
+                    unit1 = branches[0] - curr_point
+                    unit2 = branches[1] - curr_point
+                    angle_root = atan(unit_root.imag/unit_root.real)
+                    angle1 = atan(unit1.imag/unit1.real)
+                    angle2 = atan(unit2.imag/unit2.real)
+                    angle1 = (angle1 - angle_root) % 2*3.14159
+                    angle2 = (angle2 - angle_root) % 2*3.14159
+                    if len(chained_line) == chain_piece_to_inspect and len(chained_lines) == chain_to_inspect:
+                        self.add_marker(branches[0], color="red", label="branch0")
+                        self.add_marker(branches[1], label="branch1", color="black")
+                        self.add_marker(last_point, label="last_point", color="blue")
+                        self.add_marker(curr_point, label="curr_point", color="green")
+                        print(f"current chain {format_complex(chained_line)}")
+                        print(f"got rotation: angle1 {format_complex(angle1)} angle2 {format_complex(angle2)} angle_root \
+                        {format_complex(angle_root)} unit1 {format_complex(unit1)} unit2 {format_complex(unit2)} unit_root {format_complex(unit_root)}")
+                        
+                        self.plot_graph()
+                
+                        debug_screen(self, "test_rotation")
                     if angle1 > angle2: # clockwise means bigger angle?
                         chained_line.append(branches[0])
                     else:
                         chained_line.append(branches[1])
+
             elif len(branches) == 3: # we're probably on the outside
                 if len(chained_line) > 1:
                     inkex.utils.errormsg(f"got to bad state! {branches} {curr_point[:-2]} ")
@@ -198,23 +271,19 @@ class HitomezashiFill(BaseFillExtension):
                 else:
                     chained_line.append(branches[0])
             else:
-                inkex.utils.errormsg(f"got to bad state! no branches- {branches} {self.graph[curr_point]} {curr_point} {chained_line}")
+                inkex.utils.errormsg(f"got to bad state! line {len(chained_lines)} no branches- {format_complex(branches)} \
+                graph is: {format_complex(self.graph[curr_point].keys())} curr_point: {format_complex(curr_point)} chained_line: {format_complex(chained_line)}")
                 self.plot_graph()
                 self.add_marker(curr_point)
-                segments = []
-                for i in range(1, len(chained_line)):
-                    try:
-                        segments.append(self.graph[chained_line[i-1]][chained_line[i]])
-                    except KeyError as e:
-                        self.add_marker(chained_line[i], label=f"missing-segment-{i}", color="blue")
-                        self.add_marker(chained_line[i-1], label=f"missing-segment-{i}", color="green")                           
-                        print(f"got key error on: {chained_line[i]} not in {self.graph.get(chained_line[i-1], {}).keys()} {self.graph[chained_line[i]].keys()}")
-                self.add_node(combine_segments(segments).d(), "stroke:red;stroke-width:2;fill:none", "chained_path")
+                self.add_chained_line(chained_line, color="red", label="current_line")
+                for i,_chained_line in enumerate(chained_lines):
+                    self.add_chained_line(_chained_line, label=f"chained_line_{i}", color="blue")
                 parent = self.get_parent(self.current_shape)
                 parent.remove(self.current_shape)
                 debug_screen(self, "test_graph")
-                self.audit_graph()
-                sys.exit(0)
+                self.reset_shape()
+                curr_visited_points = []
+                chained_line = []
         print(f"chaining took {time()-start_time} num lines {len(chained_lines)}")
         # convert to segments
         paths = []
@@ -222,10 +291,15 @@ class HitomezashiFill(BaseFillExtension):
             segments = []
             for i in range(1, len(chained_line)):
                 segments.append(self.graph[chained_line[i-1]][chained_line[i]])
-            print(chained_line, segments)
             paths.append(combine_segments(segments))
         return paths
         
+    def reset_shape(self):
+        # remove all markers etc that were added for debugging
+        parent = self.get_parent(self.current_shape)
+        print(dir(parent))
+        parent.remove_all()
+        parent.insert(-1, self.current_shape)
 
     def bool_op_shape(self):
         try:
@@ -261,7 +335,7 @@ class HitomezashiFill(BaseFillExtension):
         ex_nodes = self.graph.keys()
         for ex_node in ex_nodes:
             diff = abs(ex_node-node)
-            if diff < TOLERANCE:
+            if diff < TOLERANCE*self.options.length:
                 return ex_node
         return node
 
@@ -273,7 +347,7 @@ class HitomezashiFill(BaseFillExtension):
                 if i == j:
                     continue
                 diff = abs(node_i-node_j)
-                if diff < TOLERANCE:
+                if diff < TOLERANCE*self.options.length:
                     print(f"nodes {node_j} and {node_i} are only {diff} apart")
 
     def hitomezashi_fill(self, node):
@@ -293,10 +367,10 @@ class HitomezashiFill(BaseFillExtension):
         # generate vertical lines
         lines = []
 
-        for x_i in range(int(self.width/self.options.length)):
+        for x_i in range(int(self.width/self.options.length)+1):
             x_coord = x_i*self.options.length + self.xmin
             odd_even_y = random() > self.options.weight_x
-            for y_i in range(int(self.height/self.options.length)):
+            for y_i in range(int(self.height/self.options.length)+1):
                 if y_i % 2 == odd_even_y:
                     continue
                 y_coord = y_i*self.options.length + self.ymin
@@ -304,10 +378,10 @@ class HitomezashiFill(BaseFillExtension):
                 end = x_coord + (y_coord+ self.options.length)*1j  
                 lines.append(Line(start, end))
         # generate horizontal lines
-        for y_i in range(int(self.height/self.options.length)):
+        for y_i in range(int(self.height/self.options.length)+1):
             y_coord = y_i*self.options.length + self.ymin
             odd_even_y = random() > self.options.weight_y
-            for x_i in range(int(self.width/self.options.length)):
+            for x_i in range(int(self.width/self.options.length)+1):
                 if x_i % 2 == odd_even_y:
                     continue
                 x_coord = x_i*self.options.length + self.xmin
@@ -321,12 +395,10 @@ class HitomezashiFill(BaseFillExtension):
             _ = self.chop_shape(lines)
             lines = self.chain_graph()
             #lines = self.bool_op_shape(self.graph)
-            print(f"chained_lines level {len(lines)}")
 
-        for i, chained_line in enumerate(lines):
-                        
+        for i, chained_line in enumerate(lines):         
             if chained_line.d() == "":
-                raise ValueError(f"got empty chained_path! {i}")
+                raise ValueError(f"got empty chained_path! {i} {chained_line}")
             if i == 131:
                 raise ValueError("I should have been skipped!")
             pattern_id = "hitomezashi-"+node.get("id", f"unknown-{self.curr_path_num}")+"-"+str(i)

@@ -1,3 +1,4 @@
+from typing import KeysView
 import inkex
 from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
 from svgpathtools import Path
@@ -78,3 +79,11 @@ def combine_segments(segments):
             for path_segment in segment._segments:
                 output_path.insert(len(output_path._segments), path_segment)
     return output_path
+
+def format_complex(input_object):
+    if input_object is None:
+        return None
+    elif isinstance(input_object, list) or isinstance(input_object, KeysView):
+        return ",".join([f"{num:.1f}" for num in input_object])
+    else:
+        return f"{input_object:.1f}"

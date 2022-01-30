@@ -2,9 +2,7 @@
 from collections import defaultdict
 import inkex
 from time import time
-from math import atan
-from copy import deepcopy, copy
-from common_utils import pattern_vector_to_d, BaseFillExtension, debug_screen, combine_segments, format_complex
+from common_utils import get_clockwise, pattern_vector_to_d, BaseFillExtension, debug_screen, combine_segments, format_complex, get_clockwise
 from random import random
 from svgpathtools import Line, Path, parse_path
 from functools import lru_cache
@@ -33,11 +31,13 @@ class HitomezashiFill(BaseFillExtension):
         self.outline_nodes = []
         # build a graph of which edge points connect where
         self.graph = defaultdict(dict)
+        self.visited_points = []
 
     def add_arguments(self, pars):
         pars.add_argument("--length", type=float, default=1, help="Length of segments")
         pars.add_argument("--weight_x", type=float, default=0.5, help="The probability of getting a 1 along the x axis")
         pars.add_argument("--weight_y", type=float, default=0.5, help="The probability of getting a 1 along the y axis")
+        pars.add_argument("--gradient", type=bool, default=False, help="fill the stitch shapes")
         pars.add_argument("--fill", type=bool, default=False, help="fill the stitch shapes")
 
     def effect(self):
@@ -91,6 +91,8 @@ class HitomezashiFill(BaseFillExtension):
             end_inside = self.is_inside(line.end)
             intersections = intersect_over_all(line, self.container)
             if not start_inside and not end_inside and not len(intersections): # skip this line, it's not inside the pattern
+                if not start_inside and self.xmin < line.start.real < self.xmax and self.ymin < line.start.imag < self.ymax:
+                    raise ValueError(f"something went wrong here, start is definitely inside {self.xmin} {line.start} {self.xmax}")
                 continue
             if start_inside and end_inside and not intersections: # add this line and then continue
                 final_lines.append(line)
@@ -109,6 +111,7 @@ class HitomezashiFill(BaseFillExtension):
         for line in final_lines:
             if line.length() < TOLERANCE*self.options.length: # skip this one because it's too short
                 print("skipping: ", line)
+                assert False
                 continue 
             line.start = self.snap_nodes(line.start)
             line.end = self.snap_nodes(line.end)
@@ -153,12 +156,13 @@ class HitomezashiFill(BaseFillExtension):
         return Path(*final_lines)
 
     def chain_graph(self):
+        self.audit_graph()
         # algorithm design
         # dump the keys in the graph into a unique list of points
         points_to_visit = list(set(self.graph.keys()))
         points_to_visit = [point for point in points_to_visit if point not in self.outline_nodes]
         chained_line = []
-        visited_points = []
+        self.visited_points = []
         curr_visited_points = []
         chained_lines = []
         curr_point = None
@@ -172,10 +176,14 @@ class HitomezashiFill(BaseFillExtension):
                 curr_point = chained_line[-1]
             if not curr_point:
                 curr_point = points_to_visit.pop()
+                if curr_point in self.visited_points:
+                    curr_point = None
+                    continue
                 chained_line = [curr_point]
-                visited_points += curr_visited_points
+                self.visited_points += curr_visited_points
                 curr_visited_points = []
             
+            """
             if curr_point in visited_points + curr_visited_points:
                 if len(chained_lines) == chain_to_inspect:
                     print("closing chained line because the points were visited")
@@ -201,6 +209,7 @@ class HitomezashiFill(BaseFillExtension):
                 chained_line = []
                 curr_point = None
                 continue
+            """
             curr_visited_points.append(curr_point)
             # if the start of the chain is a possible place you can visit, close the chained line
             if len(chained_line) > 2 and chained_line[0] in self.graph[curr_point]:
@@ -209,24 +218,45 @@ class HitomezashiFill(BaseFillExtension):
                     print("closing loop")
                 chained_line.append(chained_line[0])
                 chained_lines.append(chained_line)
-                visited_points += curr_visited_points
+                self.visited_points += curr_visited_points
                 curr_visited_points = []
                 chained_line = []
                 curr_point = None
                 continue
-            branches = [point for point in self.graph[curr_point] if point not in visited_points + curr_visited_points]
+            if len(chained_line)>=3:
+                # check whether it's possible to close the loop now
+                tail_end = chained_line[:-3]
+                in_common = set(tail_end).intersection(set(self.graph[curr_point])-set(self.visited_points))
+                if len(chained_lines) == chain_to_inspect:
+                    print(f"tail end {set(tail_end)} avail points {set(self.graph[curr_point])-set(self.visited_points)} in_common {in_common}")
+                if in_common:
+                    #chained_line.append(in_common.pop())
+                    # remove all values up until the chained piece from the curr visited points
+                    for point in tail_end:
+                        if point == chained_line[-1]:
+                            break
+                        curr_visited_points.remove(point)
+                        chained_line.remove(point)
+                        points_to_visit.insert(0, point)
+                    #assert chained_line[0] == chained_line[-1]
+                    print(f"found tail end loop, closing chain {format_complex(chained_line)} tail end {tail_end}")
+                    continue
+                branches = [point for point in self.graph[curr_point] if point not in chained_line[1:]]
+            elif 0<len(chained_line)<3:
+                branches = [point for point in self.graph[curr_point] if point not in chained_line]
+            else:
+                branches = list(self.graph[curr_point].keys())
             if len(chained_lines) == chain_to_inspect and len(chained_line) == chain_piece_to_inspect:
                 print(f"branches are {format_complex(branches)} {format_complex(self.graph[curr_point].keys())}")
             if len(branches) == 1:
                 chained_line += branches
-            elif len(branches) == 2:
+            elif len(branches) >= 2:
+                last_point = chained_line[-2] if len(chained_line) >= 2 else 0
                 # if the previous point was on the outside, pick the point on the inside
                 if len(chained_line) >= 2 and chained_line[-2] in self.outline_nodes:
-                    if branches[0] in self.outline_nodes:
-                        chained_line.append(branches[1])
-                    elif branches[1] in self.outline_nodes:
-                        chained_line.append(branches[0])
-                    else:
+                    inside_branches = [branch for branch in branches if branch not in self.outline_nodes]
+                    
+                    if len(inside_branches) == 0:
                         inkex.utils.errormsg(f"got to bad state! - last point was on outside and only two options are also outside {branches} ")
                         self.add_marker(branches[0], "branch0")
                         self.add_marker(branches[1], "branch1")
@@ -237,42 +267,25 @@ class HitomezashiFill(BaseFillExtension):
                 
                         debug_screen(self, "test_outside")
                         sys.exit(0)
-                else: # if the previous point was on the inside, pick the clockwise outside location
-                    last_point = chained_line[-2] if len(chained_line) >= 2 else 0
-                    unit_root = last_point - curr_point
-                    unit1 = branches[0] - curr_point
-                    unit2 = branches[1] - curr_point
-                    angle_root = atan(unit_root.imag/unit_root.real)
-                    angle1 = atan(unit1.imag/unit1.real)
-                    angle2 = atan(unit2.imag/unit2.real)
-                    angle1 = (angle1 - angle_root) % 2*3.14159
-                    angle2 = (angle2 - angle_root) % 2*3.14159
+                    chained_line.append(get_clockwise(last_point, curr_point, inside_branches))
+                else:                    
+                    
                     if len(chained_line) == chain_piece_to_inspect and len(chained_lines) == chain_to_inspect:
                         self.add_marker(branches[0], color="red", label="branch0")
                         self.add_marker(branches[1], label="branch1", color="black")
                         self.add_marker(last_point, label="last_point", color="blue")
                         self.add_marker(curr_point, label="curr_point", color="green")
                         print(f"current chain {format_complex(chained_line)}")
-                        print(f"got rotation: angle1 {format_complex(angle1)} angle2 {format_complex(angle2)} angle_root \
-                        {format_complex(angle_root)} unit1 {format_complex(unit1)} unit2 {format_complex(unit2)} unit_root {format_complex(unit_root)}")
                         
                         self.plot_graph()
                 
                         debug_screen(self, "test_rotation")
-                    if angle1 > angle2: # clockwise means bigger angle?
-                        chained_line.append(branches[0])
-                    else:
-                        chained_line.append(branches[1])
+                    chained_line.append(get_clockwise(last_point, curr_point, branches))
 
-            elif len(branches) == 3: # we're probably on the outside
-                if len(chained_line) > 1:
-                    inkex.utils.errormsg(f"got to bad state! {branches} {curr_point[:-2]} ")
-                    sys.exit(0)
-                else:
-                    chained_line.append(branches[0])
             else:
                 inkex.utils.errormsg(f"got to bad state! line {len(chained_lines)} no branches- {format_complex(branches)} \
                 graph is: {format_complex(self.graph[curr_point].keys())} curr_point: {format_complex(curr_point)} chained_line: {format_complex(chained_line)}")
+                
                 self.plot_graph()
                 self.add_marker(curr_point)
                 self.add_chained_line(chained_line, color="red", label="current_line")
@@ -282,6 +295,7 @@ class HitomezashiFill(BaseFillExtension):
                 parent.remove(self.current_shape)
                 debug_screen(self, "test_graph")
                 self.reset_shape()
+                
                 curr_visited_points = []
                 chained_line = []
         print(f"chaining took {time()-start_time} num lines {len(chained_lines)}")
@@ -297,7 +311,6 @@ class HitomezashiFill(BaseFillExtension):
     def reset_shape(self):
         # remove all markers etc that were added for debugging
         parent = self.get_parent(self.current_shape)
-        print(dir(parent))
         parent.remove_all()
         parent.insert(-1, self.current_shape)
 
@@ -357,40 +370,46 @@ class HitomezashiFill(BaseFillExtension):
         self.container = parse_path(pattern_vector_to_d(node))
         self.container.approximate_arcs_with_quads()
         self.xmin, self.xmax, self.ymin, self.ymax = self.container.bbox()
-        # todo: remove me
-        #self.xmin = int(self.xmin)
-        #self.ymin = int(self.ymin)
-        #self.xmax = int(self.xmax)
-        #self.ymax = int(self.ymax)
         self.width = self.xmax - self.xmin
         self.height = self.ymax - self.ymin
         # generate vertical lines
         lines = []
-
-        for x_i in range(int(self.width/self.options.length)+1):
+        num_x = int(self.width/self.options.length)+1
+        num_y = int(self.height/self.options.length)+1
+        for x_i in range(num_x):
             x_coord = x_i*self.options.length + self.xmin
-            odd_even_y = random() > self.options.weight_x
-            for y_i in range(int(self.height/self.options.length)+1):
+            if not self.options.gradient:
+                odd_even_y = random() > self.options.weight_x
+            else:
+                odd_even_y = random() > x_i/num_x
+            for y_i in range(num_y):
                 if y_i % 2 == odd_even_y:
                     continue
                 y_coord = y_i*self.options.length + self.ymin
                 start = x_coord + y_coord*1j
                 end = x_coord + (y_coord+ self.options.length)*1j  
                 lines.append(Line(start, end))
+                assert start != end
         # generate horizontal lines
-        for y_i in range(int(self.height/self.options.length)+1):
+        for y_i in range(num_y):
             y_coord = y_i*self.options.length + self.ymin
-            odd_even_y = random() > self.options.weight_y
-            for x_i in range(int(self.width/self.options.length)+1):
+            if not self.options.gradient:
+                odd_even_y = random() > self.options.weight_y
+            else:
+                odd_even_y = random() > y_i/num_y
+            for x_i in range(num_x):
                 if x_i % 2 == odd_even_y:
                     continue
                 x_coord = x_i*self.options.length + self.xmin
                 start = x_coord + y_coord*1j
                 end = (x_coord + self.options.length) + y_coord*1j
                 lines.append(Line(start, end))
+                assert start != end
 
         if not self.options.fill:
+            pass
             lines = [self.chop_shape(lines)]
+            #lines = [combine_segments(lines)]
         else:
             _ = self.chop_shape(lines)
             lines = self.chain_graph()
@@ -414,12 +433,26 @@ class HitomezashiFill(BaseFillExtension):
             if debug:
                 print("point is on bbox")
             return False
-        if point == self.xmin + self.ymin*1j:
+        if point.real < self.xmin:
+            if debug:
+                print("to the left of the bbox")
             return False
-        if point == self.xmax + self.ymax*1j:
+        if point.real > self.xmax:
+            if debug:
+                print("to the right of the bbox")
             return False
-        span_line_upper = Line(self.xmin+ self.ymin*1j, point)
-        span_line_lower = Line(point, self.xmax + self.ymax*1j)
+        if point.imag < self.ymin:
+            if debug:
+                print("below the bbox")
+            return False
+        if point.imag > self.ymax:
+            if debug:
+                print("above the bbox")
+            return False
+
+        # make sure the lines are actually out of the bbox by adding a shrinking/enlarging factor
+        span_line_upper = Line(0.9*(self.xmin+ self.ymin*1j), point)
+        span_line_lower = Line(point, 1.1*(self.xmax + self.ymax*1j))
         upper_intersections = intersect_over_all(span_line_upper, self.container)
         lower_intersections = intersect_over_all(span_line_lower, self.container)
         if debug:

@@ -2,6 +2,8 @@ from typing import KeysView
 import inkex
 from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
 from svgpathtools import Path
+
+from math import atan
 import subprocess
 
 class BaseFillExtension(inkex.EffectExtension):
@@ -87,3 +89,17 @@ def format_complex(input_object):
         return ",".join([f"{num:.1f}" for num in input_object])
     else:
         return f"{input_object:.1f}"
+
+def limit_atan(imag, real):
+    if real == 0:
+        return 3.14159/2.0
+    return atan(imag/real)
+
+
+def get_clockwise(last_point, curr_point, branches):
+    # if the previous point was on the inside, pick the clockwise outside location
+    unit_root = last_point - curr_point
+    units = [branch -curr_point for branch in branches]
+    angle_root = limit_atan(unit_root.imag, unit_root.real)
+    angles = [(limit_atan(unit.imag, unit.real) - angle_root) % 2*3.14159 for unit in units]
+    return branches[angles.index(max(angles))]

@@ -42,7 +42,7 @@ class TestHitomezashi(TestCase):
     def test_large(self):
         target = 'rect31'
         _file = 'laptop_cover.svg'
-        args = [f'--id={target}', '--length=10', "--gradient=true","--fill=true", "--weight_x=0", "--weight_y=0", self.data_file(_file)]
+        args = [f'--id={target}', '--length=10', "--gradient=false","--fill=true", "--weight_x=0", "--weight_y=0", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
         old_path = effect.svg.getElementById(target).path

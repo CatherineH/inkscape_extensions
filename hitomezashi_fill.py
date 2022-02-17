@@ -40,6 +40,7 @@ class HitomezashiFill(BaseFillExtension):
         # build a graph of which edge points connect where
         self.graph = defaultdict(dict)
         self.visited_points = []
+        self.chained_lines = []
 
     def add_arguments(self, pars):
         pars.add_argument("--length", type=float, default=1, help="Length of segments")
@@ -164,155 +165,124 @@ class HitomezashiFill(BaseFillExtension):
             start_intersection = end_intersection
         return Path(*final_lines)
 
+    def find_next(self, chained_line, debug=False):
+        """
+        find the next segment in the chained line
+        chained_line: list of locations in the current chain
+        returns: bool indicating whether the chain is finshed
+        """
+        curr_point = chained_line[-1]
+        # if the start of the chain is a possible place you can visit, close the chained line
+        if len(chained_line) > 2 and chained_line[0] in self.graph[curr_point]:
+            # the loop is closed, yippee!
+            if debug:
+                print("closing loop")
+            chained_line.append(chained_line[0])
+            return True
+        if len(chained_line)>=3:
+            # check whether it's possible to close the loop now
+            tail_end = chained_line[:-3]
+            in_common = set(tail_end).intersection(set(self.graph[curr_point])-set(self.visited_points))
+            if debug:
+                print(f" tail end {set(tail_end)} avail points {set(self.graph[curr_point])-set(self.visited_points)} in_common {in_common}")
+            if in_common:
+                #chained_line.append(in_common.pop())
+                # remove all values up until the chained piece from the curr visited points
+                for point in tail_end:
+                    if point == chained_line[-1]:
+                        break
+                    chained_line.remove(point)
+                    self.points_to_visit.insert(0, point)
+                return True
+            branches = [point for point in self.graph[curr_point] if point not in chained_line[1:]]
+        elif 0<len(chained_line)<3:
+            branches = [point for point in self.graph[curr_point] if point not in chained_line]
+        else:
+            branches = list(self.graph[curr_point].keys())
+        if debug:
+            print(f"branches are {format_complex(branches)} {format_complex(self.graph[curr_point].keys())}")
+        if len(branches) == 1:
+            chained_line += branches
+        elif len(branches) >= 2:
+            last_point = chained_line[-2] if len(chained_line) >= 2 else 0
+            # if the previous point was on the outside, pick the point on the inside
+            if len(chained_line) >= 2 and chained_line[-2] in self.outline_nodes:
+                inside_branches = [branch for branch in branches if branch not in self.outline_nodes]
+                
+                if len(inside_branches) == 0:
+                    inkex.utils.errormsg(f"got to bad state! - last point was on outside and only two options are also outside {branches} ")
+                    self.add_marker(branches[0], "branch0")
+                    self.add_marker(branches[1], "branch1")
+                    if len(chained_line) > 1:
+                        self.add_marker(chained_line[-2], "last_point")
+                    self.add_marker(curr_point, "curr_point", "blue")
+                    self.plot_graph()
+            
+                    debug_screen(self, "test_outside")
+                    sys.exit(0)
+                chained_line.append(get_clockwise(last_point, curr_point, inside_branches))
+            else:                    
+                """                    
+                if len(chained_line) == chain_piece_to_inspect and len(chained_lines) == chain_to_inspect:
+                    self.plot_graph()
+                    self.add_marker(branches[0], color="red", label="branch0")
+                    self.add_marker(branches[1], label="branch1", color="black")
+                    self.add_marker(last_point, label="last_point", color="blue")
+                    self.add_marker(curr_point, label="curr_point", color="green")
+                    print(f"current chain {format_complex(chained_line)}")
+                    
+                    
+            
+                    debug_screen(self, "test_rotation")
+                """
+                chained_line.append(get_clockwise(last_point, curr_point, branches))
+
+        else:
+            inkex.utils.errormsg(f"got to bad state! chained_line {len(self.chained_lines)} chained_piece {len(chained_line)} no branches- {format_complex(branches)} \
+            graph is: {format_complex(self.graph[curr_point].keys())} curr_point: {format_complex(curr_point)} chained_line: {format_complex(chained_line)}")
+            
+            self.plot_graph()
+            for i,_chained_line in enumerate(self.chained_lines):
+                self.add_chained_line(_chained_line, label=f"chained_line_{i}", color="blue")
+            self.add_marker(curr_point)
+            self.add_chained_line(chained_line, color="red", label="current_line")
+            
+            parent = self.get_parent(self.current_shape)
+            parent.remove(self.current_shape)
+            
+            debug_screen(self, "test_graph")
+            self.reset_shape()
+            return True
+        return False           
+
+
     def chain_graph(self):
         self.audit_graph()
         # algorithm design
         # dump the keys in the graph into a unique list of points
-        points_to_visit = list(set(self.graph.keys()))
-        points_to_visit = [point for point in points_to_visit if point not in self.outline_nodes]
-        chained_line = []
+        self.points_to_visit = list(set(self.graph.keys()))
+        self.points_to_visit = [point for point in self.points_to_visit if point not in self.outline_nodes]
         self.visited_points = []
-        curr_visited_points = []
-        chained_lines = []
         curr_point = None
         start_time = time()
-        chain_to_inspect = 130
+        chain_to_inspect = 24
         chain_piece_to_inspect = 3
-        while points_to_visit:
-            if len(chained_lines) == chain_to_inspect and len(chained_line) == chain_piece_to_inspect:
-                print(f"graph traverse {format_complex(curr_point)}")
-            if len(chained_line) > 0:
-                curr_point = chained_line[-1]
-            if not curr_point:
-                curr_point = points_to_visit.pop()
-                if curr_point in self.visited_points:
-                    curr_point = None
-                    continue
-                chained_line = [curr_point]
-                self.visited_points += curr_visited_points
-                curr_visited_points = []
+        while self.points_to_visit:
+            curr_point = self.points_to_visit.pop()
+            if curr_point in self.visited_points:
+                continue
+            chained_line = [curr_point]
             
-            """
-            if curr_point in visited_points + curr_visited_points:
-                if len(chained_lines) == chain_to_inspect:
-                    print("closing chained line because the points were visited")
-                if len(chained_line) > 1:
-                    print(f"closing chained line {len(chained_lines)}")
-                    self.plot_graph()
-                    self.add_marker(curr_point)
-                    segments = []
-                    for i in range(1, len(chained_line)):
-                        try:
-                            segments.append(self.graph[chained_line[i-1]][chained_line[i]])
-                        except KeyError as e:
-                            self.add_marker(chained_line[i], label=f"missing-segment-{i}", color="blue")
-                            self.add_marker(chained_line[i-1], label=f"missing-segment-{i}", color="green")                           
-                            print(f"got key error on: {chained_line[i]} not in {self.graph.get(chained_line[i-1], {}).keys()} {self.graph[chained_line[i]].keys()}")
-                    self.add_node(combine_segments(segments).d(), "stroke:red;stroke-width:2;fill:none", "chained_path")
-                    parent = self.get_parent(self.current_shape)
-                    parent.remove(self.current_shape)
-                    debug_screen(self, "test_closed_line")
-                    self.audit_graph()
-                    sys.exit(0)
-                    chained_lines.append(chained_line)
-                chained_line = []
-                curr_point = None
-                continue
-            """
-            curr_visited_points.append(curr_point)
-            # if the start of the chain is a possible place you can visit, close the chained line
-            if len(chained_line) > 2 and chained_line[0] in self.graph[curr_point]:
-                # the loop is closed, yippee!
-                if len(chained_lines) == chain_to_inspect:
-                    print("closing loop")
-                chained_line.append(chained_line[0])
-                chained_lines.append(chained_line)
-                self.visited_points += curr_visited_points
-                curr_visited_points = []
-                chained_line = []
-                curr_point = None
-                continue
-            if len(chained_line)>=3:
-                # check whether it's possible to close the loop now
-                tail_end = chained_line[:-3]
-                in_common = set(tail_end).intersection(set(self.graph[curr_point])-set(self.visited_points))
-                if len(chained_lines) == chain_to_inspect:
-                    print(f"tail end {set(tail_end)} avail points {set(self.graph[curr_point])-set(self.visited_points)} in_common {in_common}")
-                if in_common:
-                    #chained_line.append(in_common.pop())
-                    # remove all values up until the chained piece from the curr visited points
-                    for point in tail_end:
-                        if point == chained_line[-1]:
-                            break
-                        curr_visited_points.remove(point)
-                        chained_line.remove(point)
-                        points_to_visit.insert(0, point)
-                    #assert chained_line[0] == chained_line[-1]
-                    print(f"found tail end loop, closing chain {format_complex(chained_line)} tail end {tail_end}")
-                    continue
-                branches = [point for point in self.graph[curr_point] if point not in chained_line[1:]]
-            elif 0<len(chained_line)<3:
-                branches = [point for point in self.graph[curr_point] if point not in chained_line]
-            else:
-                branches = list(self.graph[curr_point].keys())
-            if len(chained_lines) == chain_to_inspect and len(chained_line) == chain_piece_to_inspect:
-                print(f"branches are {format_complex(branches)} {format_complex(self.graph[curr_point].keys())}")
-            if len(branches) == 1:
-                chained_line += branches
-            elif len(branches) >= 2:
-                last_point = chained_line[-2] if len(chained_line) >= 2 else 0
-                # if the previous point was on the outside, pick the point on the inside
-                if len(chained_line) >= 2 and chained_line[-2] in self.outline_nodes:
-                    inside_branches = [branch for branch in branches if branch not in self.outline_nodes]
-                    
-                    if len(inside_branches) == 0:
-                        inkex.utils.errormsg(f"got to bad state! - chained_line {len(chained_lines)} chained_piece \
-                        {len(chained_line)} last point was on outside and only two options are also outside {branches} ")
-                        self.add_marker(branches[0], "branch0")
-                        self.add_marker(branches[1], "branch1")
-                        if len(chained_line) > 1:
-                            self.add_marker(chained_line[-2], "last_point")
-                        self.add_marker(curr_point, "curr_point", "blue")
-                        self.plot_graph()
-                
-                        debug_screen(self, "test_outside")
-                        sys.exit(0)
-                    chained_line.append(get_clockwise(last_point, curr_point, inside_branches))
-                else:                    
-                    
-                    if len(chained_line) == chain_piece_to_inspect and len(chained_lines) == chain_to_inspect:
-                        self.plot_graph()
-                        self.add_marker(branches[0], color="red", label="branch0")
-                        self.add_marker(branches[1], label="branch1", color="black")
-                        self.add_marker(last_point, label="last_point", color="blue")
-                        self.add_marker(curr_point, label="curr_point", color="green")
-                        print(f"current chain {format_complex(chained_line)}")
-                        
-                        
-                
-                        debug_screen(self, "test_rotation")
-                    chained_line.append(get_clockwise(last_point, curr_point, branches))
+            while not self.find_next(chained_line, chain_to_inspect==len(self.chained_lines) and chain_piece_to_inspect==len(chained_line)):
+                print(f"{len(chained_line)}")
+                pass
 
-            else:
-                inkex.utils.errormsg(f"got to bad state! chained_line {len(chained_lines)} chained_piece {len(chained_line)} no branches- {format_complex(branches)} \
-                graph is: {format_complex(self.graph[curr_point].keys())} curr_point: {format_complex(curr_point)} chained_line: {format_complex(chained_line)}")
-                
-                self.plot_graph()
-                self.add_marker(curr_point)
-                self.add_chained_line(chained_line, color="red", label="current_line")
-                for i,_chained_line in enumerate(chained_lines):
-                    self.add_chained_line(_chained_line, label=f"chained_line_{i}", color="blue")
-                parent = self.get_parent(self.current_shape)
-                parent.remove(self.current_shape)
-                debug_screen(self, "test_graph")
-                self.reset_shape()
-                
-                curr_visited_points = []
-                chained_line = []
-        print(f"chaining took {time()-start_time} num lines {len(chained_lines)}")
+            self.chained_lines.append(chained_line)
+            self.visited_points += chained_line
+        print(f"chaining took {time()-start_time} num lines {len(self.chained_lines)}")
         # convert to segments
         paths = []
-        for chained_line in chained_lines:
+        for chained_line in self.chained_lines:
             segments = []
             for i in range(1, len(chained_line)):
                 segments.append(self.graph[chained_line[i-1]][chained_line[i]])
@@ -373,6 +343,7 @@ class HitomezashiFill(BaseFillExtension):
                 diff = abs(node_i-node_j)
                 if diff < TOLERANCE*self.options.length:
                     print(f"nodes {node_j} and {node_i} are only {diff} apart")
+        # TODO: combine segments that have only one input/output with the next segment ? 
 
     def hitomezashi_fill(self, node):
         # greedy algorithm: make a Hitomezashi fill that covers the entire bounding box of the shape, 

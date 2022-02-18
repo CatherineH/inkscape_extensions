@@ -184,17 +184,24 @@ class HitomezashiFill(BaseFillExtension):
             tail_end = chained_line[:-3]
             in_common = set(tail_end).intersection(set(self.graph[curr_point])-set(self.visited_points))
             if debug:
-                print(f" tail end {set(tail_end)} avail points {set(self.graph[curr_point])-set(self.visited_points)} in_common {in_common}")
+                print(f"chain end {format_complex(chained_line[-1])} tail end {format_complex(set(tail_end))} avail points {format_complex(set(self.graph[curr_point])-set(self.visited_points))} in_common {format_complex(in_common)}")
             if in_common:
-                #chained_line.append(in_common.pop())
+                chained_line.append(in_common.pop())
                 # remove all values up until the chained piece from the curr visited points
+                
                 for point in tail_end:
                     if point == chained_line[-1]:
                         break
                     chained_line.remove(point)
                     self.points_to_visit.insert(0, point)
+                if debug:
+                    print("closed loop due to visited points")
                 return True
-            branches = [point for point in self.graph[curr_point] if point not in chained_line[1:]]
+            branches = [point for point in self.graph[curr_point] if point not in chained_line[1:]+self.visited_points]
+
+            if not branches: # if there were no branches, still allow the graph to travel along the outside if possible
+                branches = list(set(self.graph[curr_point]).intersection(set(self.outline_nodes)))
+                
         elif 0<len(chained_line)<3:
             branches = [point for point in self.graph[curr_point] if point not in chained_line]
         else:
@@ -210,16 +217,23 @@ class HitomezashiFill(BaseFillExtension):
                 inside_branches = [branch for branch in branches if branch not in self.outline_nodes]
                 
                 if len(inside_branches) == 0:
+                    chained_line.append(branches[0])
+                    return False
+                    """
                     inkex.utils.errormsg(f"got to bad state! - last point was on outside and only two options are also outside {branches} ")
-                    self.add_marker(branches[0], "branch0")
-                    self.add_marker(branches[1], "branch1")
+                    self.plot_graph()
+                    for i,_chained_line in enumerate(self.chained_lines):
+                        self.add_chained_line(_chained_line, label=f"chained_line_{i}", color="blue")
+                    self.add_marker(branches[0], "branch0", "green")
+                    self.add_marker(branches[1], "branch1", "green")
+                    self.add_chained_line(chained_line, color="red", label="current_line")
                     if len(chained_line) > 1:
                         self.add_marker(chained_line[-2], "last_point")
-                    self.add_marker(curr_point, "curr_point", "blue")
-                    self.plot_graph()
+                    self.add_marker(curr_point, "curr_point", "red")                   
             
                     debug_screen(self, "test_outside")
                     sys.exit(0)
+                    """
                 chained_line.append(get_clockwise(last_point, curr_point, inside_branches))
             else:                    
                 """                    
@@ -273,9 +287,11 @@ class HitomezashiFill(BaseFillExtension):
                 continue
             chained_line = [curr_point]
             
-            while not self.find_next(chained_line, chain_to_inspect==len(self.chained_lines) and chain_piece_to_inspect==len(chained_line)):
+            while not self.find_next(chained_line, True): # chain_to_inspect==len(self.chained_lines) and chain_piece_to_inspect==len(chained_line)
                 print(f"{len(chained_line)}")
                 pass
+            assert len(chained_line) >= 4, f"chained_line is too short! {format_complex(chained_line)}"
+            assert chained_line[0] != chained_line[-1], f"chained line is not a loop! {format_complex(chained_line)}"
 
             self.chained_lines.append(chained_line)
             self.visited_points += chained_line
@@ -335,7 +351,7 @@ class HitomezashiFill(BaseFillExtension):
 
     def audit_graph(self):
         # check whether there are points that are very close together
-        nodes = self.graph.keys()
+        nodes = list(self.graph.keys())
         for i, node_i in enumerate(nodes):
             for j, node_j in enumerate(nodes):
                 if i == j:
@@ -343,6 +359,15 @@ class HitomezashiFill(BaseFillExtension):
                 diff = abs(node_i-node_j)
                 if diff < TOLERANCE*self.options.length:
                     print(f"nodes {node_j} and {node_i} are only {diff} apart")
+        def out_of_bounds(node):
+            return node.real > self.xmax + TOLERANCE or node.real < self.xmin-TOLERANCE or node.imag > self.ymax+TOLERANCE or node.imag< self.ymin -TOLERANCE
+        # remove any points that are outside of the bbox from the graph
+        for node in nodes:
+            if not out_of_bounds(node):
+                continue
+            for branch in self.graph[node]:
+                del self.graph[branch][node]
+            del self.graph[node] 
         # TODO: combine segments that have only one input/output with the next segment ? 
 
     def hitomezashi_fill(self, node):

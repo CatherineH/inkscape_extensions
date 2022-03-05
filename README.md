@@ -30,4 +30,7 @@ and here's how it renders after:
 
 ![silhouette studio render](https://raw.githubusercontent.com/CatherineH/inkscape_extensions/main/doc/cricut_path_fill.png)
 
+Hitozemashi Stitch Patterns
+====================
 
+inspired by [Numberphile's video on hitozemashi stitch patterns](https://www.youtube.com/watch?v=JbfhzlMk2eY)

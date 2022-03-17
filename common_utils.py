@@ -91,6 +91,7 @@ def combine_segments(segments):
 
 
 def format_complex(input_object):
+
     if input_object is None:
         return None
     elif (
@@ -98,7 +99,9 @@ def format_complex(input_object):
         or isinstance(input_object, KeysView)
         or isinstance(input_object, set)
     ):
-        return ",".join([f"{num:.1f}" for num in input_object])
+        return ",".join([f"{num}" if isinstance(num, int) else f"{num:.1f}" for num in input_object ])
+    elif isinstance(input_object, int):
+        return f"{input_object}"
     else:
         return f"{input_object:.1f}"
 

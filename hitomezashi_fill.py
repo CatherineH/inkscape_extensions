@@ -56,6 +56,7 @@ class HitomezashiFill(BaseFillExtension):
         self.chained_lines = []
         self.last_branches = [] # keep track of the last possible branch
         self._debug_branches = []
+        self._evaluated = []
 
     def add_arguments(self, pars):
         pars.add_argument("--length", type=float, default=1, help="Length of segments")
@@ -144,15 +145,15 @@ class HitomezashiFill(BaseFillExtension):
         ]
         self.add_node(Path(*marker).d(), f"fill:{color};stroke:none", label)
 
-    def plot_graph(self):
+    def plot_graph(self, color="gray", label="graph"):
         # dump the graph
         all_graph_segments = [
             segment for branch in self.graph.values() for segment in branch.values()
         ]
         self.add_node(
             combine_segments(all_graph_segments).d(),
-            "stroke:gray;stroke-width:2;fill:none",
-            "graph",
+            f"stroke:{color};stroke-width:2;fill:none",
+            label,
         )
 
     def chop_shape(self, lines):
@@ -194,8 +195,8 @@ class HitomezashiFill(BaseFillExtension):
             line_i = self.snap_nodes(line.start)
             line_j = self.snap_nodes(line.end)
 
-            self.graph[line_i][line_j] = Line(line.start, line.end)
-            self.graph[line_j][line_i] = Line(line.end, line.start)
+            self.graph[line_i][line_j] = Path(Line(line.start, line.end))
+            self.graph[line_j][line_i] = Path(Line(line.end, line.start))
 
         self.outline_intersections = list(set(self.outline_intersections))
         self.outline_intersections.sort(key=lambda x: -x[0] - x[1])
@@ -251,20 +252,13 @@ class HitomezashiFill(BaseFillExtension):
             start_intersection = end_intersection
         return Path(*final_lines)
 
-    def find_next(self, chained_line, debug=False):
-        """
-        find the next segment in the chained line
-        chained_line: list of locations in the current chain
-        returns: bool indicating whether the chain is finshed
-        """
-        curr_point = chained_line[-1]
-        # if the start of the chain is a possible place you can visit, close the chained line
-        if len(chained_line) > 2 and chained_line[0] in self.graph[curr_point]:
+    def chain_valid(self, chained_line, debug=False):
+        # output: 0 - stop, 1 - continue, 2 - end
+        if len(chained_line) > 3 and chained_line[0] == chained_line[-1]:
             # the loop is closed, yippee!
             if debug:
-                print("closing loop")
-            chained_line.append(chained_line[0])
-            return True
+                print(f"closing loop {format_complex(chained_line)}")
+            return 1
         if len(chained_line) >= 3:
             # check whether it's possible to close the loop now
             loop_index = None
@@ -277,96 +271,124 @@ class HitomezashiFill(BaseFillExtension):
                     pass
             if loop_index:
                 if debug:
-                    print(f"chained_line {format_complex(chained_line)} loops back on itself at index {loop_index}")
-
-                if not self.last_branches:
-                    inkex.errormsg(f"got to bad state! {format_complex(chained_line)}")
-                    self.plot_graph()
-
-                    self.add_chained_line(chained_line, color="red", label="current_line")
-                    self.add_marker(curr_point)
-                    for opath_i, other_path in enumerate(self._debug_branches):
-                        self.add_chained_line(other_path, color="blue", label=f"other_path{opath_i}")
-                    debug_screen(self, "test_graph")
-                chained_line = self.last_branches.pop()
-                self._debug_branches.append(deepcopy(chained_line))
-
-                return False
-
-            branches = [
-                point
-                for point in self.graph[curr_point]
-                if point not in chained_line[1:]
-            ]
-
-            if (
-                not branches
-            ):  # if there were no branches, still allow the graph to travel along the outside if possible
-                branches = list(
-                    set(self.graph[curr_point]).intersection(set(self.outline_nodes))
-                )
-
-        elif 0 < len(chained_line) < 3:
-            branches = [
-                point for point in self.graph[curr_point] if point not in chained_line
-            ]
-        else:
-            branches = list(self.graph[curr_point].keys())
+                    print(f"chained_line {len(self._debug_branches)} loops back on itself at index {loop_index} {format_complex(chained_line)} ")
+                return 0
         if debug:
-            print(
-                f"branches are {format_complex(branches)} {format_complex(self.graph[curr_point].keys())}"
-            )
-        if len(branches) == 1:
-            chained_line += branches
-        elif len(branches) >= 2:
-            # sort the branches
-            branches.sort(key=lambda x:abs(x))
-            chained_line.append(branches[0])
-            if debug:
-                print(f"pushing down: {format_complex(chained_line+[branches[1]])}")
-            assert curr_point == chained_line[-1]
-            assert branches[1] in self.graph[chained_line[-1]]
-            self.last_branches.append(deepcopy(chained_line)+[branches[1]])
+            print(f"chained line {format_complex(chained_line)} is valid, continuing")
+        return 2
 
-        return False
+    def get_branches(self, chained_line, debug=False):
+        """
+        find the next segment in the chained line
+        chained_line: list of locations in the current chain
+        returns: bool indicating whether the chain is finshed
+        """
+        state = self.chain_valid(chained_line, debug)
+        if state == 1:
+            return chained_line
+        elif state == 0:
+            return None
+        branches = list(self.graph[chained_line[-1]].keys())
+        # remove the ones already on the line, but not the first point
+        branches = [
+            point
+            for point in branches
+            if point not in chained_line[1:]
+        ]
+        branches.sort(key=lambda x: abs(self.graph_locs[x] - self.graph_locs[chained_line[0]]))
+
+        for branch in branches:
+            chain_to_add = deepcopy(chained_line) + [branch]
+            if debug:
+                print(f"adding {chain_to_add}")
+            self.last_branches.append(chain_to_add)
+
+            """
+            if branch not in self._evaluated:
+                
+                if branch != chained_line[0]:
+                    self._evaluated.append(branch)
+            """
+
+        return None
 
     def chain_graph(self):
+        #self.plot_graph()
+        self.simplify_graph()
+        #self.plot_graph(color="blue", label="simplified_graph")
+        #debug_screen(self, "test_graph_simplify")
         self.audit_graph()
+
+
         # algorithm design
         # dump the keys in the graph into a unique list of points
         self.points_to_visit = list(set(self.graph.keys()))
-        self.points_to_visit = [
-            point for point in self.points_to_visit if point not in self.outline_nodes
-        ]
+
         self.visited_points = []
         start_time = time()
+        print(f"num points to visit: {len(self.points_to_visit)}")
         while self.points_to_visit:
+            chain_start_time = time()
             curr_point = self.points_to_visit.pop()
-            print(f"points to visit: {len(self.points_to_visit)} {format_complex(curr_point)}")
+            #print(f"points to visit: {len(self.points_to_visit)} {format_complex(curr_point)}")
 
             if curr_point in self.visited_points:
-                print(f"already visited {curr_point}")
+                #print(f"already visited {curr_point}")
                 continue
             chained_line = [curr_point]
+            self.get_branches(chained_line)
+            assert self.last_branches
+            num_iterations = 0
 
-            while not self.find_next(
-                chained_line, True
-            ):  # chain_to_inspect==len(self.chained_lines) and chain_piece_to_inspect==len(chained_line)
-                pass
+            while self.last_branches:  # chain_to_inspect==len(self.chained_lines) and chain_piece_to_inspect==len(chained_line)
+                chained_line = self.last_branches.pop(0)
+                # re-sort the branches every additional 100
+                """
+                if num_iterations % 100 == 0:
+                    self.last_branches.sort(key = lambda x : abs(x[-1]-chained_line[0]))
+                if len(self.last_branches) > 1000:
+                    self.plot_graph()
+                    print("too many branches to evaluate")
+                    for i, chain_branch in enumerate(self.last_branches):
+                        self.add_chained_line(chain_branch, label=f"chained_branch-{i}", color="blue")
+                    for i, chain_branch in enumerate(self._debug_branches):
+                        self.add_chained_line(chain_branch, label=f"chained_branch-{i}", color="green")
+                    self.add_chained_line(chained_line)
+                    self.add_marker(chained_line[0])
+                    debug_screen(self, "test_many_branches")             
+                """
+                self._debug_branches.append(chained_line)
+
+                #print(f"branches to visit: {len(self.last_branches)}")
+                is_complete = self.get_branches(chained_line, False)
+                if is_complete:
+                    break
+                num_iterations += 1
+
             if len(chained_line) < 4 or abs(chained_line[0] - chained_line[-1]) > TOLERANCE or not self.audit_overlap(chained_line):
-                print(f"failed on line {format_complex(chained_line)}, aborting")
+                self.plot_graph()
+                for loc in self._evaluated:
+                    self.add_marker(loc, color="green")
+                self.add_chained_line(chained_line)
+                self.add_marker(chained_line[0])
+
+                debug_screen(self, "test_failed_connect")
+                raise ValueError(f"failed on line {format_complex(chained_line)}, aborting ")
                 for point in chained_line[1:]:
                     if point not in self.points_to_visit + self.visited_points:
                         self.points_to_visit.insert(0, point)
 
                 continue
+
             self.last_branches = []
             self._debug_branches = []
+            self._evaluated = []
             print(f"finished {chained_line[0]} {len(self.visited_points)} {len(self.points_to_visit)}")
             self.chained_lines.append(chained_line)
             for point in chained_line:
                 if point not in self.visited_points:
                     self.visited_points.append(point)
+            print(f"line of length {len(chained_line)} took {time() - chain_start_time}")
         print(f"chaining took {time()-start_time} num lines {len(self.chained_lines)}")
         # convert to segments
         paths = []
@@ -450,6 +472,39 @@ class HitomezashiFill(BaseFillExtension):
                 return i
         self.graph_locs.append(node)
         return len(self.graph_locs) - 1
+
+    def simplify_graph(self):
+        """ merge any nodes that have only two outputs into a path between the two.
+        Keep doing this until there are no more nodes to evaluate """
+        all_nodes = deepcopy(list(self.graph.keys()))
+        print(f"before simplification the graph had {len(all_nodes)} nodes")
+        while all_nodes:
+            to_evaluate = all_nodes.pop()
+            branches = list(self.graph[to_evaluate].keys())
+            if len(branches) > 2:
+                continue
+            if  0 < len(branches) < 2:
+                # nodes that don't have an input and an output can never be part of a cycle, so delete them
+                del self.graph[to_evaluate]
+                continue
+            start_i = branches[0]
+            end_i = branches[1]
+            if start_i == to_evaluate or end_i == to_evaluate or start_i == end_i:
+                # skip over reducing this one
+                continue
+            if not isinstance(self.graph[start_i][to_evaluate], Path):
+                self.graph[start_i][to_evaluate] = Path(self.graph[start_i][to_evaluate])
+            if not isinstance(self.graph[to_evaluate][end_i], Path):
+                self.graph[to_evaluate][end_i] = Path(self.graph[to_evaluate][end_i])
+            segments = [*self.graph[start_i][to_evaluate]] + [*self.graph[to_evaluate][end_i]]
+            segment = Path(*segments)
+            self.graph[start_i][end_i] = segment
+            self.graph[end_i][start_i] = segment.reversed()
+            del self.graph[to_evaluate]
+            del self.graph[start_i][to_evaluate]
+            del self.graph[end_i][to_evaluate]
+
+        print(f"after simplification the graph has {len(self.graph.keys())} nodes")
 
     def audit_graph(self):
         # check whether there are points that are very close together

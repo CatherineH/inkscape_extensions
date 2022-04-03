@@ -55,7 +55,6 @@ class TestHitomezashi(TestCase):
         args = [
             f"--id={target}",
             "--length=10",
-            "--gradient=true",
             "--fill=true",
             "--weight_x=0",
             "--weight_y=0",
@@ -68,10 +67,29 @@ class TestHitomezashi(TestCase):
         debug_screen(effect, "test_large")
         assert new_path
 
+    def test_large_gradient(self):
+        target = "rect31"
+        _file = "laptop_cover.svg"
+        args = [
+            f"--id={target}",
+            "--length=10",
+            "--gradient=true",
+            "--fill=true",
+            "--weight_x=0",
+            "--weight_y=0",
+            self.data_file(_file),
+        ]
+        effect = self.effect_class()
+        effect.run(args)
+        old_path = effect.svg.getElementById(target).path
+        new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
+        debug_screen(effect, "test_large_gradient")
+        assert new_path
+
 
 if __name__ == "__main__":
     print("test_basic")
     # TestHitomezashi().test_basic()
     print("test_heart")
     # TestHitomezashi().test_heart()
-    TestHitomezashi().test_large()
+    TestHitomezashi().test_large_gradient()

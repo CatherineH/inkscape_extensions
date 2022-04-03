@@ -3,13 +3,11 @@ from collections import defaultdict
 import inkex
 from time import time
 from common_utils import (
-    get_clockwise,
     pattern_vector_to_d,
     BaseFillExtension,
     debug_screen,
     combine_segments,
     format_complex,
-    get_clockwise,
 )
 from random import random
 from svgpathtools import Line, Path, parse_path
@@ -145,16 +143,26 @@ class HitomezashiFill(BaseFillExtension):
         ]
         self.add_node(Path(*marker).d(), f"fill:{color};stroke:none", label)
 
-    def plot_graph(self, color="gray", label="graph"):
+    def plot_graph(self, color="gray", label="graph", connected=True):
         # dump the graph
-        all_graph_segments = [
-            segment for branch in self.graph.values() for segment in branch.values()
-        ]
-        self.add_node(
-            combine_segments(all_graph_segments).d(),
-            f"stroke:{color};stroke-width:2;fill:none",
-            label,
-        )
+        if connected:
+            all_graph_segments = [
+                segment for branch in self.graph.values() for segment in branch.values()
+            ]
+            self.add_node(
+                combine_segments(all_graph_segments).d(),
+                f"stroke:{color};stroke-width:2;fill:none",
+                label,
+            )
+        else:
+            for start_i in self.graph.keys():
+                for end_i in self.graph[start_i].keys():
+                    try:
+                        self.add_node(self.graph[start_i][end_i].d(), f"stroke:{color};stroke-width:2;fill:none",
+                                      f"{label}-{start_i}-{end_i}")
+                    except AttributeError as e:
+                        print(f"skipping {self.graph[start_i][end_i]}")
+                        pass
 
     def chop_shape(self, lines):
         final_lines = []
@@ -313,12 +321,11 @@ class HitomezashiFill(BaseFillExtension):
         return None
 
     def chain_graph(self):
-        #self.plot_graph()
+        #self.plot_graph(connected=False)
         self.simplify_graph()
-        #self.plot_graph(color="blue", label="simplified_graph")
+        #self.plot_graph(color="blue", label="simplified_graph", connected=False)
         #debug_screen(self, "test_graph_simplify")
         self.audit_graph()
-
 
         # algorithm design
         # dump the keys in the graph into a unique list of points
@@ -483,13 +490,16 @@ class HitomezashiFill(BaseFillExtension):
             branches = list(self.graph[to_evaluate].keys())
             if len(branches) > 2:
                 continue
-            if  0 < len(branches) < 2:
+
+            if 0 < len(branches) < 2:
                 # nodes that don't have an input and an output can never be part of a cycle, so delete them
-                del self.graph[to_evaluate]
+                # del self.graph[to_evaluate]
                 continue
+
             start_i = branches[0]
             end_i = branches[1]
-            if start_i == to_evaluate or end_i == to_evaluate or start_i == end_i:
+            if start_i == to_evaluate or end_i == to_evaluate or start_i == end_i or end_i in self.graph[start_i] \
+                    or start_i in self.graph[end_i]:
                 # skip over reducing this one
                 continue
             if not isinstance(self.graph[start_i][to_evaluate], Path):
@@ -498,11 +508,14 @@ class HitomezashiFill(BaseFillExtension):
                 self.graph[to_evaluate][end_i] = Path(self.graph[to_evaluate][end_i])
             segments = [*self.graph[start_i][to_evaluate]] + [*self.graph[to_evaluate][end_i]]
             segment = Path(*segments)
+
             self.graph[start_i][end_i] = segment
             self.graph[end_i][start_i] = segment.reversed()
             del self.graph[to_evaluate]
             del self.graph[start_i][to_evaluate]
             del self.graph[end_i][to_evaluate]
+            assert self.graph[start_i][end_i]
+            assert self.graph[end_i][start_i]
 
         print(f"after simplification the graph has {len(self.graph.keys())} nodes")
 
@@ -534,13 +547,18 @@ class HitomezashiFill(BaseFillExtension):
             for branch in branches:
                 del self.graph[branch][node]
             del self.graph[node]
-        # TODO: combine segments that have only one input/output with the next segment ?
+
+        for start_i in self.graph.keys():
+            for end_i in self.graph[start_i].keys():
+                if not isinstance(self.graph[start_i][end_i], Path):
+                    self.graph[start_i][end_i] = Path(self.graph[start_i][end_i])
 
     def hitomezashi_fill(self, node):
         # greedy algorithm: make a Hitomezashi fill that covers the entire bounding box of the shape,
         # then go through each segment and figure out if it is inside, outside, or intersecting the shape
 
         self.container = parse_path(pattern_vector_to_d(node))
+
         self.container.approximate_arcs_with_quads()
         self.xmin, self.xmax, self.ymin, self.ymax = self.container.bbox()
         self.width = self.xmax - self.xmin

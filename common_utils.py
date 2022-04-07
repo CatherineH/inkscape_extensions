@@ -1,8 +1,10 @@
 from typing import KeysView
 import inkex
 from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
-from svgpathtools import Path
-
+from svgpathtools import Path, Line
+from numpy import matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
+from collections import defaultdict
 from math import atan
 import subprocess
 
@@ -36,12 +38,6 @@ def pattern_vector_to_d(pattern_vector):
     if "d" in pattern_vector.attrib:
         return pattern_vector.attrib.get("d")
     elif pattern_vector.TAG == "rect":
-        """if "rx" in pattern_vector.attrib or "ry" in pattern_vector.attrib:
-        inkex.utils.errormsg(
-            "Rect %s has rounded edges, this not yet supported, try Object to path first"
-            % (pattern_vector.get("id"))
-        )
-        return"""
         return rect2pathd(pattern_vector.attrib)
     elif pattern_vector.TAG in ["circle", "ellipse"]:
         return ellipse2pathd(pattern_vector.attrib)
@@ -76,6 +72,96 @@ def debug_screen(effect, name=None):
     filename = f"output/debug_{name}.svg"
     effect.save(open(filename, "wb"))
     subprocess.run(["inkview", filename])
+
+
+def make_stack_tree(lines):
+    """
+
+    Parameters
+    ----------
+    lines: a list of svgpathtool Paths
+
+    Returns
+    -------
+    a tuple - first element is a graph, second element is a list of root notes
+    """
+    def pairwise_comparison(path1, path2):
+        # returns True if path1 is inside path2
+        xmin1, xmax1, ymin1, ymax1 = path1.bbox()
+        xmin2, xmax2, ymin2, ymax2 = path2.bbox()
+        bbox_inside = xmin1 <= xmin2 <= xmax2 <= xmax1 and ymin1 <= ymin2 <= ymax2 <= ymax1
+        if not bbox_inside:
+            return False
+        # if the bboxes overlap, do something more complex
+        # if any of the points in path2 is inside path1, the line must be inside
+        for segment in path2:
+            segment_inside = is_inside(path1, segment.start)
+            if segment_inside:
+                return True
+        return False
+
+    stack_matrix = matrix([[pairwise_comparison(lines[i], lines[j]) for i in range(len(lines))] for j in range(len(lines))])
+    # convert to a minimum spanning tree such that each line is just in one parent
+    stack_matrix = minimum_spanning_tree(stack_matrix, overwrite=True).toarray()
+    stack_tree = defaultdict(list)
+    root_nodes = [i for i in range(len(lines))]
+    for i, row in enumerate(stack_matrix):
+        for j, cell in enumerate(row):
+            if not cell:
+                continue
+            stack_tree[i].append(j)
+            if j in root_nodes:
+                root_nodes.remove(j)
+    return stack_tree, root_nodes
+
+
+def intersect_over_all(line, path):
+    all_intersections = []
+    for i, segment in enumerate(path):
+        current_intersections = line.intersect(segment)
+        all_intersections += [(t1, t2, i) for (t1, t2) in current_intersections]
+    return all_intersections
+
+
+def is_inside(container, point, debug=False, tolerance=0.2):
+    xmin, xmax, ymin, ymax = container.bbox()
+    # if the point is on the edge of the bbox, assume it's outside
+    diffs = [
+        abs(point.real - xmin),
+        abs(point.real - xmax),
+        abs(point.imag - ymin),
+        abs(point.imag - ymax),
+    ]
+    diffs = [diff < tolerance for diff in diffs]
+    if any(diffs):
+        if debug:
+            print("point is on bbox")
+        return False
+    if point.real < xmin:
+        if debug:
+            print("to the left of the bbox")
+        return False
+    if point.real > xmax:
+        if debug:
+            print("to the right of the bbox")
+        return False
+    if point.imag < ymin:
+        if debug:
+            print("below the bbox")
+        return False
+    if point.imag > ymax:
+        if debug:
+            print("above the bbox")
+        return False
+
+    # make sure the lines are actually out of the bbox by adding a shrinking/enlarging factor
+    span_line_upper = Line(0.9 * (xmin + ymin * 1j), point)
+    span_line_lower = Line(point, 1.1 * (xmax + ymax * 1j))
+    upper_intersections = intersect_over_all(span_line_upper, container)
+    lower_intersections = intersect_over_all(span_line_lower, container)
+    if debug:
+        print(f"is_inside debug {upper_intersections} {lower_intersections}")
+    return len(upper_intersections) % 2 or len(lower_intersections) % 2
 
 
 def combine_segments(segments):

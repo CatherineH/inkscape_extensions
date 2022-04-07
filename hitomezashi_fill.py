@@ -8,28 +8,15 @@ from common_utils import (
     debug_screen,
     combine_segments,
     format_complex,
+    make_stack_tree,
+    is_inside,
+    intersect_over_all
 )
 from random import random
 from svgpathtools import Line, Path, parse_path
 from functools import lru_cache
 import sys
 from copy import deepcopy
-
-
-def intersect_over_all(line, path):
-    all_intersections = []
-    for i, segment in enumerate(path):
-        current_intersections = line.intersect(segment)
-        all_intersections += [(t1, t2, i) for (t1, t2) in current_intersections]
-        line_end_t = segment.point_to_t(line.end)
-        line_start_t = segment.point_to_t(line.start)
-        """
-        if line_end_t and (1.0, line_end_t, i) not in all_intersections:
-            all_intersections += [(1.0, line_end_t, i)]
-        if line_start_t and (0.0, line_start_t, i) not in all_intersections:
-            all_intersections += [(0.0, line_start_t, i)]
-        """
-    return all_intersections
 
 
 TOLERANCE = 0.2
@@ -174,8 +161,6 @@ class HitomezashiFill(BaseFillExtension):
             if (
                 not start_inside and not end_inside and not len(intersections)
             ):  # skip this line, it's not inside the pattern
-                # if not start_inside and self.xmin < line.start.real < self.xmax and self.ymin < line.start.imag < self.ymax:
-                #    raise ValueError(f"something went wrong here, start is definitely inside {self.xmin} {line.start} {self.xmax}")
                 continue
             if (
                 start_inside and end_inside and not intersections
@@ -390,12 +375,11 @@ class HitomezashiFill(BaseFillExtension):
             self.last_branches = []
             self._debug_branches = []
             self._evaluated = []
-            print(f"finished {chained_line[0]} {len(self.visited_points)} {len(self.points_to_visit)}")
             self.chained_lines.append(chained_line)
             for point in chained_line:
                 if point not in self.visited_points:
                     self.visited_points.append(point)
-            print(f"line of length {len(chained_line)} took {time() - chain_start_time}")
+
         print(f"chaining took {time()-start_time} num lines {len(self.chained_lines)}")
         # convert to segments
         paths = []
@@ -578,7 +562,6 @@ class HitomezashiFill(BaseFillExtension):
                 x_coord += TOLERANCE / 2.0
             if not self.options.gradient:
                 odd_even_y = random() > self.options.weight_x
-                assert odd_even_y
             else:
                 odd_even_y = random() > x_i / num_x
             for y_i in range(num_y):
@@ -605,7 +588,6 @@ class HitomezashiFill(BaseFillExtension):
             y_coord = y_i * self.options.length + self.ymin
             if not self.options.gradient:
                 odd_even_y = random() > self.options.weight_y
-                assert odd_even_y
             else:
                 odd_even_y = random() > y_i / num_y
             for x_i in range(num_x):
@@ -629,14 +611,27 @@ class HitomezashiFill(BaseFillExtension):
         if not self.options.fill:
             pass
             lines = [self.chop_shape(lines)]
-            # lines = [combine_segments(lines)]
+            lines = [line.d() for line in lines]
         else:
             _ = self.chop_shape(lines)
             lines = self.chain_graph()
-            # lines = self.bool_op_shape(self.graph)
+            # next: we need to stack and cut the paths out of each other
+            stack_tree, root_nodes = make_stack_tree(lines)
+            line_d_strings = []
+            while root_nodes:
+                current_node = root_nodes.pop()
+                child_nodes = stack_tree[current_node]
+
+                basic_d_string = f"{lines[current_node].d()} Z"
+                for child_node in child_nodes:
+                    basic_d_string = f"{basic_d_string} {lines[child_node].d()} Z"
+                    if child_node in stack_tree:
+                        root_nodes += stack_tree[child_node]
+                line_d_strings.append(basic_d_string)
+            lines = line_d_strings
 
         for i, chained_line in enumerate(lines):
-            if chained_line.d() == "":
+            if chained_line == "":
                 raise ValueError(f"got empty chained_path! {i} {chained_line}")
             pattern_id = (
                 "hitomezashi-"
@@ -645,47 +640,15 @@ class HitomezashiFill(BaseFillExtension):
                 + str(i)
             )
             pattern_style = node.get("style")
-            self.add_node(chained_line.d(), pattern_style, pattern_id)
+            if self.options.fill:
+                pattern_style = pattern_style.replace("fill:none", "fill:red")
+                if "fill" not in pattern_style:
+                    pattern_style += ";fill:'red'"
+            self.add_node(chained_line, pattern_style, pattern_id)
 
     @lru_cache(maxsize=None)
     def is_inside(self, point, debug=False):
-        # if the point is on the edge of the bbox, assume it's outside
-        diffs = [
-            abs(point.real - self.xmin),
-            abs(point.real - self.xmax),
-            abs(point.imag - self.ymin),
-            abs(point.imag - self.ymax),
-        ]
-        diffs = [diff < TOLERANCE for diff in diffs]
-        if any(diffs):
-            if debug:
-                print("point is on bbox")
-            return False
-        if point.real < self.xmin:
-            if debug:
-                print("to the left of the bbox")
-            return False
-        if point.real > self.xmax:
-            if debug:
-                print("to the right of the bbox")
-            return False
-        if point.imag < self.ymin:
-            if debug:
-                print("below the bbox")
-            return False
-        if point.imag > self.ymax:
-            if debug:
-                print("above the bbox")
-            return False
-
-        # make sure the lines are actually out of the bbox by adding a shrinking/enlarging factor
-        span_line_upper = Line(0.9 * (self.xmin + self.ymin * 1j), point)
-        span_line_lower = Line(point, 1.1 * (self.xmax + self.ymax * 1j))
-        upper_intersections = intersect_over_all(span_line_upper, self.container)
-        lower_intersections = intersect_over_all(span_line_lower, self.container)
-        if debug:
-            print(f"is_inside debug {upper_intersections} {lower_intersections}")
-        return len(upper_intersections) % 2 or len(lower_intersections) % 2
+        return is_inside(self.container, point, debug, TOLERANCE)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,8 @@ from common_utils import debug_screen
 from inkex.tester import TestCase
 import inkex
 
+FOLDERNAME = join(dirname(dirname(abspath(__file__))), "output")
+
 
 class TestHitomezashi(TestCase):
     effect_class = HitomezashiFill
@@ -19,7 +21,7 @@ class TestHitomezashi(TestCase):
         args = [f"--id={target}", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
-        effect.save(open(f"output/{target}_hitomezashi.svg", "wb"))
+        effect.save(open(join(FOLDERNAME, f"{target}_hitomezashi.svg"), "wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
         assert len(new_path) > len(old_path)
@@ -64,7 +66,8 @@ class TestHitomezashi(TestCase):
         effect.run(args)
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
-        debug_screen(effect, "test_large")
+        #debug_screen(effect, "test_large")
+        effect.save(open(join(FOLDERNAME, f"test_large_hitomezashi.svg"), "wb"))
         assert new_path
 
     def test_large_gradient(self):
@@ -82,14 +85,25 @@ class TestHitomezashi(TestCase):
         effect = self.effect_class()
         effect.run(args)
         old_path = effect.svg.getElementById(target).path
+        layer1 = effect.svg.getElementById("layer1")
+        for element in layer1.iterchildren():
+            path = element.path
+            previous_letter = None
+            for path_piece in path:
+                if path_piece.letter == "M" and previous_letter == "L":
+                    assert False, f"path {path} has a move command after a line"
+                previous_letter = path_piece.letter
         new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
-        debug_screen(effect, "test_large_gradient")
+        #print("calling debug screen now")
+        #debug_screen(effect, "test_large_gradient")
+        effect.save(open(join(FOLDERNAME, f"test_large_gradient.svg"), "wb"))
         assert new_path
 
 
 if __name__ == "__main__":
     print("test_basic")
-    # TestHitomezashi().test_basic()
+    TestHitomezashi().test_basic()
     print("test_heart")
-    # TestHitomezashi().test_heart()
+    TestHitomezashi().test_heart()
     TestHitomezashi().test_large_gradient()
+    TestHitomezashi().test_large()

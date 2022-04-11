@@ -86,13 +86,23 @@ class TestHitomezashi(TestCase):
         effect.run(args)
         old_path = effect.svg.getElementById(target).path
         layer1 = effect.svg.getElementById("layer1")
+        seen_d_strings = []
+        # go over the chained lines and confirm that they don't overlap,
+        # also make sure it is not moving after it already moved
         for element in layer1.iterchildren():
             path = element.path
+            for seen_d_string in seen_d_strings:
+                assert path[0] != seen_d_string.path[0], f"strings {element.get_id()} {seen_d_string.get_id()}:  {path} and {seen_d_string} start at the same location!"
+
+            seen_d_strings.append(element)
+
+
             previous_letter = None
             for path_piece in path:
                 if path_piece.letter == "M" and previous_letter == "L":
                     assert False, f"path {path} has a move command after a line"
                 previous_letter = path_piece.letter
+
         new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
         #print("calling debug screen now")
         #debug_screen(effect, "test_large_gradient")

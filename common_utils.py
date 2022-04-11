@@ -34,6 +34,24 @@ def transform_path_vector(pv, affine_t):
     return pv
 
 
+def find_orientation(in_path):
+    points = []
+    for segment in in_path:
+        points.append(segment.end)
+    # https://en.wikipedia.org/wiki/Curve_orientation#Orientation_of_a_simple_polygon
+    orientations = 0
+
+    for i in range(len(points)):
+        _piece = []
+        for j in range(3):
+            _piece.append(points[(i + j) % len(points)])
+        # x2*y3+x1*y2+y1*x3 - (y1*x2+y2*x3+x1*y3)
+        orientations += _piece[1].real * _piece[2].imaj + _piece[0].real * _piece[1].imag + \
+                        _piece[0].imag * _piece[2].real - \
+                        (_piece[0].imag * _piece[1].real + _piece[1].imag * _piece[2].real + _piece[0].real * _piece[2].imag)
+    return orientations > 0
+
+
 def pattern_vector_to_d(pattern_vector):
     if "d" in pattern_vector.attrib:
         return pattern_vector.attrib.get("d")
@@ -97,8 +115,14 @@ def make_stack_tree(lines):
         for segment in path2:
             segment_inside = is_inside(path1, segment.start)
             if segment_inside:
-                return True
-        return False
+                return 1
+        return 0
+
+    def print_array(in_matrix):
+        for i in range(len(lines)):
+            for j in range(len(lines)):
+                if in_matrix[i,j] > 0:
+                    print(f"{i} {j} {in_matrix[i,j]}")
 
     stack_matrix = matrix([[pairwise_comparison(lines[i], lines[j]) for i in range(len(lines))] for j in range(len(lines))])
     # convert to a minimum spanning tree such that each line is just in one parent
@@ -109,9 +133,11 @@ def make_stack_tree(lines):
         for j, cell in enumerate(row):
             if not cell:
                 continue
-            stack_tree[i].append(j)
-            if j in root_nodes:
-                root_nodes.remove(j)
+            stack_tree[j].append(i)
+            if i in root_nodes:
+                root_nodes.remove(i)
+    print(stack_tree)
+    print(root_nodes)
     return stack_tree, root_nodes
 
 
@@ -167,12 +193,19 @@ def is_inside(container, point, debug=False, tolerance=0.2):
 def combine_segments(segments):
     # svgpathtools does not dump "Path" segments when generating d strings
     output_path = Path()
+    previous_end = None
     for segment in segments:
         if not isinstance(segment, Path):
+            if previous_end:
+                segment.start = previous_end
             output_path.insert(len(output_path._segments), segment)
+            previous_end = segment.end
         else:
             for path_segment in segment._segments:
+                if previous_end:
+                    path_segment.start = previous_end
                 output_path.insert(len(output_path._segments), path_segment)
+                previous_end = path_segment.end
     return output_path
 
 

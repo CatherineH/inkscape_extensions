@@ -10,7 +10,8 @@ from common_utils import (
     format_complex,
     make_stack_tree,
     is_inside,
-    intersect_over_all
+    intersect_over_all,
+find_orientation
 )
 from random import random
 from svgpathtools import Line, Path, parse_path
@@ -296,13 +297,6 @@ class HitomezashiFill(BaseFillExtension):
                 print(f"adding {chain_to_add}")
             self.last_branches.append(chain_to_add)
 
-            """
-            if branch not in self._evaluated:
-                
-                if branch != chained_line[0]:
-                    self._evaluated.append(branch)
-            """
-
         return None
 
     def chain_graph(self):
@@ -322,36 +316,19 @@ class HitomezashiFill(BaseFillExtension):
         while self.points_to_visit:
             chain_start_time = time()
             curr_point = self.points_to_visit.pop()
-            #print(f"points to visit: {len(self.points_to_visit)} {format_complex(curr_point)}")
 
             if curr_point in self.visited_points:
-                #print(f"already visited {curr_point}")
                 continue
             chained_line = [curr_point]
             self.get_branches(chained_line)
             assert self.last_branches
             num_iterations = 0
 
-            while self.last_branches:  # chain_to_inspect==len(self.chained_lines) and chain_piece_to_inspect==len(chained_line)
+            while self.last_branches:
                 chained_line = self.last_branches.pop(0)
                 # re-sort the branches every additional 100
-                """
-                if num_iterations % 100 == 0:
-                    self.last_branches.sort(key = lambda x : abs(x[-1]-chained_line[0]))
-                if len(self.last_branches) > 1000:
-                    self.plot_graph()
-                    print("too many branches to evaluate")
-                    for i, chain_branch in enumerate(self.last_branches):
-                        self.add_chained_line(chain_branch, label=f"chained_branch-{i}", color="blue")
-                    for i, chain_branch in enumerate(self._debug_branches):
-                        self.add_chained_line(chain_branch, label=f"chained_branch-{i}", color="green")
-                    self.add_chained_line(chained_line)
-                    self.add_marker(chained_line[0])
-                    debug_screen(self, "test_many_branches")             
-                """
                 self._debug_branches.append(chained_line)
 
-                #print(f"branches to visit: {len(self.last_branches)}")
                 is_complete = self.get_branches(chained_line, False)
                 if is_complete:
                     break
@@ -366,11 +343,6 @@ class HitomezashiFill(BaseFillExtension):
 
                 debug_screen(self, "test_failed_connect")
                 raise ValueError(f"failed on line {format_complex(chained_line)}, aborting ")
-                for point in chained_line[1:]:
-                    if point not in self.points_to_visit + self.visited_points:
-                        self.points_to_visit.insert(0, point)
-
-                continue
 
             self.last_branches = []
             self._debug_branches = []
@@ -398,25 +370,6 @@ class HitomezashiFill(BaseFillExtension):
                     continue
                 if chained_line[i] != chained_line[j]:
                     continue
-                # inkex.utils.errormsg(
-                #     f"chained_line doubles back on itself! {i} {j} {format_complex(chained_line)}"
-                # )
-                #
-                # self.plot_graph()
-                # for chli, _chained_line in enumerate(self.chained_lines):
-                #     self.add_chained_line(
-                #         _chained_line, label=f"chained_line_{chli}", color="blue"
-                #     )
-                #
-                # self.add_chained_line(chained_line, color="red", label="current_line")
-                # if tail_end:
-                #     self.add_chained_line(tail_end, color="green", label="tail_end")
-                # if curr_point:
-                #     self.add_marker(curr_point)
-                # parent = self.get_parent(self.current_shape)
-                # parent.remove(self.current_shape)
-                #
-                # debug_screen(self, "test_graph")
                 return False
         return True
 
@@ -621,9 +574,12 @@ class HitomezashiFill(BaseFillExtension):
             while root_nodes:
                 current_node = root_nodes.pop()
                 child_nodes = stack_tree[current_node]
-
+                parent_orientation = find_orientation(lines[current_node])
                 basic_d_string = f"{lines[current_node].d()} Z"
                 for child_node in child_nodes:
+                    child_orientation = find_orientation(lines[child_node])
+                    if child_orientation == parent_orientation:
+                        lines[child_node] = 
                     basic_d_string = f"{basic_d_string} {lines[child_node].d()} Z"
                     if child_node in stack_tree:
                         root_nodes += stack_tree[child_node]

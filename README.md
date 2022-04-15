@@ -3,6 +3,16 @@ Catherine's Inkscape Extensions
 
 My inkscape extensions. Designed to work with python3/inkscape > 1.0.
 
+Getting this to work with Inkscape
+==================================
+
+Find the location of the "user extensions" folder in Edit -> Preferences -> System, then create symlinks from the folder
+where you've checked out these files to. See the "link_extensions.bat" file.
+
+This library is heavily dependent on the library `svgpathtools`, which is not compatible with the python that ships
+with the windows version of inkscape, to fix this, delete the versions of python in the inkscape/bin folder.
+
+
 Pattern to Path
 ===============
 

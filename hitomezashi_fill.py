@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 from collections import defaultdict
-import inkex
+from constraint import Problem
+try:
+    import inkex
+except ImportError:
+    import sys
+    raise ValueError(f"svgpathtools is not available on {sys.executable}")
 from time import time
 from common_utils import (
     pattern_vector_to_d,
@@ -11,7 +16,7 @@ from common_utils import (
     make_stack_tree,
     is_inside,
     intersect_over_all,
-find_orientation
+    find_orientation
 )
 from random import random
 from svgpathtools import Line, Path, parse_path
@@ -43,6 +48,7 @@ class HitomezashiFill(BaseFillExtension):
         self.last_branches = [] # keep track of the last possible branch
         self._debug_branches = []
         self._evaluated = []
+        self.connections = []
 
     def add_arguments(self, pars):
         pars.add_argument("--length", type=float, default=1, help="Length of segments")
@@ -351,7 +357,8 @@ class HitomezashiFill(BaseFillExtension):
             for point in chained_line:
                 if point not in self.visited_points:
                     self.visited_points.append(point)
-
+        # initialize the connections
+        self.connections = [[0 for _ in range(len(self.chained_lines))] for _ in range(len(self.chained_lines))]
         print(f"chaining took {time()-start_time} num lines {len(self.chained_lines)}")
         # convert to segments
         paths = []
@@ -360,6 +367,17 @@ class HitomezashiFill(BaseFillExtension):
             for i in range(1, len(chained_line)):
                 segments.append(self.graph[chained_line[i - 1]][chained_line[i]])
             paths.append(combine_segments(segments))
+        for i in range(len(self.chained_lines)):
+            for j in range(len(self.chained_lines)):
+                if i == j:
+                    continue
+                if self.connections[i][j]:
+                    continue
+                # if there are at least two points in common between the chained lines, they probably touch
+                points_in_common = set(self.chained_lines[i]).intersection(set(self.chained_lines[j]))
+                if len(points_in_common) >= 2:
+                    self.connections[i][j] = 1
+                    self.connections[j][i] = 1
         return paths
 
     def audit_overlap(self, chained_line, tail_end=[], curr_point=None):
@@ -560,32 +578,47 @@ class HitomezashiFill(BaseFillExtension):
                 end = (x_coord + self.options.length + diff) + y_coord * 1j
                 lines.append(Line(start, end))
                 assert start != end
-
+        labels = []
         if not self.options.fill:
-            pass
             lines = [self.chop_shape(lines)]
             lines = [line.d() for line in lines]
+            labels = [i for i in range(len(lines))]
         else:
             _ = self.chop_shape(lines)
             lines = self.chain_graph()
             # next: we need to stack and cut the paths out of each other
             stack_tree, root_nodes = make_stack_tree(lines)
-            line_d_strings = []
+            combined_lines = []
             while root_nodes:
                 current_node = root_nodes.pop()
                 child_nodes = stack_tree[current_node]
-                parent_orientation = find_orientation(lines[current_node])
-                basic_d_string = f"{lines[current_node].d()} Z"
-                for child_node in child_nodes:
-                    child_orientation = find_orientation(lines[child_node])
-                    if child_orientation == parent_orientation:
-                        lines[child_node] = 
-                    basic_d_string = f"{basic_d_string} {lines[child_node].d()} Z"
-                    if child_node in stack_tree:
-                        root_nodes += stack_tree[child_node]
-                line_d_strings.append(basic_d_string)
-            lines = line_d_strings
+                to_inspect = None # 47
+                if current_node == to_inspect:
+                    self.add_chained_line(self.chained_lines[current_node], label=f"chained-line-{current_node}")
 
+                parent_orientation = find_orientation(lines[current_node])
+                combined_line = lines[current_node]
+                for child_node in child_nodes:
+                    self.connections[current_node][child_node] = 1
+                    self.connections[child_node][current_node] = 1
+                    child_orientation = find_orientation(lines[child_node])
+                    if current_node == to_inspect:
+                        self.add_chained_line(self.chained_lines[child_node], label=f"child-line-{child_node}", color="blue")
+
+                    if child_orientation == parent_orientation:
+                        lines[child_node] = lines[child_node].reversed()
+                    for segment in lines[child_node]:
+                        combined_line.append(segment)
+                    root_nodes.append(child_node)
+                combined_lines.append(combined_line)
+                if current_node == to_inspect:
+                    debug_screen(self, name="test_weird_piece")
+
+                labels.append(current_node)
+            lines = [line.d() for line in combined_lines]
+        color_fills = []
+        if self.options.fill:
+            color_fills = self.color_pattern()
         for i, chained_line in enumerate(lines):
             if chained_line == "":
                 raise ValueError(f"got empty chained_path! {i} {chained_line}")
@@ -593,14 +626,30 @@ class HitomezashiFill(BaseFillExtension):
                 "hitomezashi-"
                 + node.get("id", f"unknown-{self.curr_path_num}")
                 + "-"
-                + str(i)
+                + str(labels[i])
             )
             pattern_style = node.get("style")
             if self.options.fill:
-                pattern_style = pattern_style.replace("fill:none", "fill:red")
+                color = "white" if color_fills[i] else "red"
+                pattern_style = pattern_style.replace("fill:none", f"fill:{color}")
                 if "fill" not in pattern_style:
-                    pattern_style += ";fill:'red'"
+                    pattern_style += f";fill:{color}"
             self.add_node(chained_line, pattern_style, pattern_id)
+
+    def color_pattern(self):
+        problem = Problem()
+        for i in range(len(self.chained_lines)):
+            problem.addVariable(i, [0, 1])
+
+        for i in range(len(self.chained_lines)):
+            for j in range(len(self.chained_lines)):
+                if self.connections[i][j]:
+                    problem.addConstraint(lambda x, y: x != y, (i, j))
+        solution = problem.getSolution()
+        if not solution:
+            raise ValueError("there is no solution!")
+        else:
+            return solution
 
     @lru_cache(maxsize=None)
     def is_inside(self, point, debug=False):

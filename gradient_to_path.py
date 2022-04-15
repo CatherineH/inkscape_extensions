@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
 import random
 import inkex
-from pylivarot import (
-    sp_pathvector_boolop,
-    bool_op,
-    FillRule,
-    py2geom,
-    get_outline_offset,
-)
+
 from common_utils import (
     bounds_rect,
     transform_path_vector,

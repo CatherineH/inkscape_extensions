@@ -1,12 +1,18 @@
 from typing import KeysView
 import inkex
-from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
-from svgpathtools import Path, Line
+try:
+    from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
+    from svgpathtools import Path, Line
+except ImportError:
+    import sys
+    inkex.utils.errormsg(f"svgpathtools is not available on {sys.executable}")
 from numpy import matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 from collections import defaultdict
 from math import atan
 import subprocess
+from os.path import dirname, abspath, join
+FOLDERNAME = join(dirname(abspath(__file__)), "output")
 
 
 class BaseFillExtension(inkex.EffectExtension):
@@ -46,7 +52,7 @@ def find_orientation(in_path):
         for j in range(3):
             _piece.append(points[(i + j) % len(points)])
         # x2*y3+x1*y2+y1*x3 - (y1*x2+y2*x3+x1*y3)
-        orientations += _piece[1].real * _piece[2].imaj + _piece[0].real * _piece[1].imag + \
+        orientations += _piece[1].real * _piece[2].imag + _piece[0].real * _piece[1].imag + \
                         _piece[0].imag * _piece[2].real - \
                         (_piece[0].imag * _piece[1].real + _piece[1].imag * _piece[2].real + _piece[0].real * _piece[2].imag)
     return orientations > 0
@@ -87,7 +93,8 @@ def get_fill_id(node):
 
 def debug_screen(effect, name=None):
     name = name or str(effect)
-    filename = f"output/debug_{name}.svg"
+
+    filename = join(FOLDERNAME, f"debug_{name}.svg")
     effect.save(open(filename, "wb"))
     subprocess.run(["inkview", filename])
 
@@ -103,26 +110,21 @@ def make_stack_tree(lines):
     -------
     a tuple - first element is a graph, second element is a list of root notes
     """
-    def pairwise_comparison(path1, path2):
+    def pairwise_comparison(path1, path2, debug=False):
         # returns True if path1 is inside path2
         xmin1, xmax1, ymin1, ymax1 = path1.bbox()
         xmin2, xmax2, ymin2, ymax2 = path2.bbox()
         bbox_inside = xmin1 <= xmin2 <= xmax2 <= xmax1 and ymin1 <= ymin2 <= ymax2 <= ymax1
         if not bbox_inside:
-            return False
+            return 0
         # if the bboxes overlap, do something more complex
         # if any of the points in path2 is inside path1, the line must be inside
+        segments_inside = []
         for segment in path2:
-            segment_inside = is_inside(path1, segment.start)
-            if segment_inside:
-                return 1
-        return 0
+            segments_inside.append(is_inside(path1, segment.start))
 
-    def print_array(in_matrix):
-        for i in range(len(lines)):
-            for j in range(len(lines)):
-                if in_matrix[i,j] > 0:
-                    print(f"{i} {j} {in_matrix[i,j]}")
+        return all(segments_inside)
+
 
     stack_matrix = matrix([[pairwise_comparison(lines[i], lines[j]) for i in range(len(lines))] for j in range(len(lines))])
     # convert to a minimum spanning tree such that each line is just in one parent

@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 import inkex
-from pylivarot import (
-    sp_pathvector_boolop,
-    bool_op,
-    FillRule,
-    py2geom,
-    pathv_to_linear_and_cubic_beziers,
-)
+
 from common_utils import (
     bounds_rect,
     transform_path_vector,

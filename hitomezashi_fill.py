@@ -13,17 +13,19 @@ from common_utils import (
     debug_screen,
     combine_segments,
     format_complex,
-    make_stack_tree,
+    stack_lines,
     is_inside,
     intersect_over_all,
-    find_orientation
+    find_orientation,
+    svgpath_to_shapely_polygon
 )
 from random import random
 from svgpathtools import Line, Path, parse_path
 from functools import lru_cache
 import sys
 from copy import deepcopy
-
+import colorsys
+from pickle import dump
 
 TOLERANCE = 0.2
 
@@ -43,12 +45,12 @@ class HitomezashiFill(BaseFillExtension):
         # build a graph of which edge points connect where
         self.graph = defaultdict(dict)
         self.graph_locs = []
-        self.visited_points = []
+        self.edges_to_visit = []
+        self.visited_edges = []
         self.chained_lines = []
         self.last_branches = [] # keep track of the last possible branch
         self._debug_branches = []
         self._evaluated = []
-        self.connections = []
 
     def add_arguments(self, pars):
         pars.add_argument("--length", type=float, default=1, help="Length of segments")
@@ -314,18 +316,22 @@ class HitomezashiFill(BaseFillExtension):
 
         # algorithm design
         # dump the keys in the graph into a unique list of points
-        self.points_to_visit = list(set(self.graph.keys()))
+        for key1 in self.graph:
+            for key2 in self.graph[key1]:
+                self.edges_to_visit.append([key1, key2])
 
-        self.visited_points = []
+        self.visited_edges = []
         start_time = time()
-        print(f"num points to visit: {len(self.points_to_visit)}")
-        while self.points_to_visit:
+        while self.edges_to_visit:
             chain_start_time = time()
-            curr_point = self.points_to_visit.pop()
+            curr_edge = self.edges_to_visit.pop()
 
-            if curr_point in self.visited_points:
+            print(f"evaluating {curr_edge} num edges to visit: {len(self.edges_to_visit)} visited: {self.visited_edges}")
+
+            if curr_edge in self.visited_edges:
+                print(f"already visited {curr_edge}")
                 continue
-            chained_line = [curr_point]
+            chained_line = curr_edge
             self.get_branches(chained_line)
             assert self.last_branches
             num_iterations = 0
@@ -339,27 +345,37 @@ class HitomezashiFill(BaseFillExtension):
                 if is_complete:
                     break
                 num_iterations += 1
-
-            if len(chained_line) < 4 or abs(chained_line[0] - chained_line[-1]) > TOLERANCE or not self.audit_overlap(chained_line):
+            overlap_pass = self.audit_overlap(chained_line)
+            """
+            if len(chained_line) < 4 or abs(self.graph_locs[chained_line[0]] - self.graph_locs[chained_line[-1]]) > TOLERANCE or not overlap_pass:
                 self.plot_graph()
                 for loc in self._evaluated:
                     self.add_marker(loc, color="green")
                 self.add_chained_line(chained_line)
                 self.add_marker(chained_line[0])
-
+                print(f"failed on line {format_complex(chained_line)}, aborting. start/end difference is: {abs(self.graph_locs[chained_line[0]] - self.graph_locs[chained_line[-1]])} and overlap audit is {overlap_pass}")
                 debug_screen(self, "test_failed_connect")
-                raise ValueError(f"failed on line {format_complex(chained_line)}, aborting ")
-
+                raise ValueError()
+            """
             self.last_branches = []
             self._debug_branches = []
             self._evaluated = []
+            print("adding chained line", len(self.chained_lines), chained_line)
             self.chained_lines.append(chained_line)
-            for point in chained_line:
-                if point not in self.visited_points:
-                    self.visited_points.append(point)
-        # initialize the connections
-        self.connections = [[0 for _ in range(len(self.chained_lines))] for _ in range(len(self.chained_lines))]
+            for i in range(len(chained_line)):
+                _edge = [chained_line[i], chained_line[(i+1) % (len(chained_line)-1)]]
+                if _edge not in self.visited_edges:
+                    print(f"adding edge {_edge}")
+                    self.visited_edges.append(deepcopy(_edge))
+                _edge.reverse()
+                if _edge not in self.visited_edges:
+                    print(f"adding edge reversed {_edge}")
+                    self.visited_edges.append(_edge)
+            #self.visited_edges.sort(key=lambda x: x[0] * len(self.visited_edges) + x[1])
+
         print(f"chaining took {time()-start_time} num lines {len(self.chained_lines)}")
+        for i, chained_line in enumerate(self.chained_lines):
+            print(i, chained_line)
         # convert to segments
         paths = []
         for chained_line in self.chained_lines:
@@ -367,17 +383,6 @@ class HitomezashiFill(BaseFillExtension):
             for i in range(1, len(chained_line)):
                 segments.append(self.graph[chained_line[i - 1]][chained_line[i]])
             paths.append(combine_segments(segments))
-        for i in range(len(self.chained_lines)):
-            for j in range(len(self.chained_lines)):
-                if i == j:
-                    continue
-                if self.connections[i][j]:
-                    continue
-                # if there are at least two points in common between the chained lines, they probably touch
-                points_in_common = set(self.chained_lines[i]).intersection(set(self.chained_lines[j]))
-                if len(points_in_common) >= 2:
-                    self.connections[i][j] = 1
-                    self.connections[j][i] = 1
         return paths
 
     def audit_overlap(self, chained_line, tail_end=[], curr_point=None):
@@ -586,47 +591,25 @@ class HitomezashiFill(BaseFillExtension):
         else:
             _ = self.chop_shape(lines)
             lines = self.chain_graph()
+            print(f"graph {self.graph}")
             # next: we need to stack and cut the paths out of each other
-            stack_tree, root_nodes = make_stack_tree(lines)
-            combined_lines = []
-            while root_nodes:
-                current_node = root_nodes.pop()
-                child_nodes = stack_tree[current_node]
-                to_inspect = None # 47
-                if current_node == to_inspect:
-                    self.add_chained_line(self.chained_lines[current_node], label=f"chained-line-{current_node}")
+            dump(lines, open("tests/data/lines.pickle", "wb"))
 
-                parent_orientation = find_orientation(lines[current_node])
-                combined_line = lines[current_node]
-                for child_node in child_nodes:
-                    self.connections[current_node][child_node] = 1
-                    self.connections[child_node][current_node] = 1
-                    child_orientation = find_orientation(lines[child_node])
-                    if current_node == to_inspect:
-                        self.add_chained_line(self.chained_lines[child_node], label=f"child-line-{child_node}", color="blue")
-
-                    if child_orientation == parent_orientation:
-                        lines[child_node] = lines[child_node].reversed()
-                    for segment in lines[child_node]:
-                        combined_line.append(segment)
-                    root_nodes.append(child_node)
-                combined_lines.append(combined_line)
-                if current_node == to_inspect:
-                    debug_screen(self, name="test_weird_piece")
-
-                labels.append(current_node)
+            combined_lines, labels = stack_lines(lines)
+            #combined_lines = lines
+            color_fills = self.color_pattern(combined_lines)
             lines = [line.d() for line in combined_lines]
-        color_fills = []
-        if self.options.fill:
-            color_fills = self.color_pattern()
+            print(f"labels {len(labels)} {labels}")
+            print(f"combined lines {len(combined_lines)}")
         for i, chained_line in enumerate(lines):
             if chained_line == "":
                 raise ValueError(f"got empty chained_path! {i} {chained_line}")
+            label = labels[i] if len(labels) > i else i
             pattern_id = (
                 "hitomezashi-"
                 + node.get("id", f"unknown-{self.curr_path_num}")
                 + "-"
-                + str(labels[i])
+                + str(label)
             )
             pattern_style = node.get("style")
             if self.options.fill:
@@ -636,17 +619,34 @@ class HitomezashiFill(BaseFillExtension):
                     pattern_style += f";fill:{color}"
             self.add_node(chained_line, pattern_style, pattern_id)
 
-    def color_pattern(self):
+    def color_pattern(self, combined_lines):
         problem = Problem()
-        for i in range(len(self.chained_lines)):
+        _polygons = []
+        for i in range(len(combined_lines)):
             problem.addVariable(i, [0, 1])
-
-        for i in range(len(self.chained_lines)):
-            for j in range(len(self.chained_lines)):
-                if self.connections[i][j]:
+            _polygons.append(set(segment.start for segment in combined_lines[i]))
+        connections = defaultdict(list)
+        for i in range(len(combined_lines)):
+            for j in range(len(combined_lines)):
+                if i == j:
+                    continue
+                if len(_polygons[i].intersection(_polygons[j])) >= 2:
+                    connections[i].append(j)
                     problem.addConstraint(lambda x, y: x != y, (i, j))
         solution = problem.getSolution()
+
         if not solution:
+            N = len(combined_lines)
+            HSV_tuples = [(x * 1.0 / N, 0.5, 0.5) for x in range(N)]
+            RGB_tuples = [colorsys.hsv_to_rgb(*x) for x in HSV_tuples]
+            for i in range(len(combined_lines)):
+                r,g,b = RGB_tuples[i]
+                _style = f"fill:#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+                self.add_node(combined_lines[i].d(), style=_style, id=f"shape-{i}")
+                #print(i, connections[i])
+                #for j in connections[i]:
+                #    self.add_node(combined_lines[j].d(), style=_style, id=f"neighbor-{i}-{j}")
+            debug_screen(self, "two_color_failure")
             raise ValueError("there is no solution!")
         else:
             return solution

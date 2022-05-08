@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import random
 import inkex
+from math import atan2
 
 from common_utils import (
     bounds_rect,
@@ -79,7 +80,7 @@ class GradientToPath(BaseFillExtension):
             y1 = float(gradient.attrib.get("y1", "0"))
             y2 = float(gradient.attrib.get("y2", "0"))
             # if the angle isn't horizontal or vertical, throw an error
-            _angle = py2geom.atan2(py2geom.Point(x2 - x1, y2 - y1))
+            _angle = atan2(x2-x1, y2-y1)
             stops = gradient.stops
             stops.reverse()
             stops_dict = {}

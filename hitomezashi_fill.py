@@ -32,14 +32,12 @@ TOLERANCE = 0.2
 
 class HitomezashiFill(BaseFillExtension):
     def __init__(self):
-        inkex.EffectExtension.__init__(self)
+        BaseFillExtension.__init__(self, self.hitomezashi_fill)
         self.xmax = None
         self.xmin = None
         self.ymin = None
         self.ymax = None
         self.container = None
-        self.curr_path_num = 0
-        self.current_shape = None
         self.outline_intersections = []
         self.outline_nodes = []
         # build a graph of which edge points connect where
@@ -73,25 +71,6 @@ class HitomezashiFill(BaseFillExtension):
             "--fill", type=str, default="false", help="fill the stitch shapes"
         )
 
-    def effect(self):
-        self.options.gradient = self.options.gradient == "true"
-        self.options.fill = self.options.fill == "true"
-        if self.svg.selected:
-            for i, shape in self.svg.selected.items():
-                self.curr_path_num = i
-                self.current_shape = shape
-                self.hitomezashi_fill(shape)
-
-    def add_node(self, d_string, style, id):
-        parent = self.get_parent(self.current_shape)
-        _node = inkex.elements.PathElement()
-        _node.set_path(d_string)
-        _node.set("style", style)
-        _node.set("id", id)
-        if self.current_shape.get("transform"):
-            _node.set("transform", self.current_shape.get("transform"))
-        parent.insert(-1, _node)
-
     def add_chained_line(self, chained_line, label="chained-line", color="red"):
         segments = []
         for i in range(1, len(chained_line)):
@@ -109,7 +88,7 @@ class HitomezashiFill(BaseFillExtension):
                     f"got key error on: {chained_line[i]} not in {self.graph.get(chained_line[i-1], {}).keys()} {self.graph[chained_line[i]].keys()}"
                 )
         stroke_length = self.options.length / 10
-        self.add_node(
+        self.add_path_node(
             combine_segments(segments).d(),
             f"stroke:{color};stroke-width:{stroke_length};fill:none",
             label,
@@ -137,7 +116,7 @@ class HitomezashiFill(BaseFillExtension):
                 point + marker_size + marker_size * 1j,
             ),
         ]
-        self.add_node(Path(*marker).d(), f"fill:{color};stroke:none", label)
+        self.add_path_node(Path(*marker).d(), f"fill:{color};stroke:none", label)
 
     def plot_graph(self, color="gray", label="graph", connected=True):
         # dump the graph
@@ -145,7 +124,7 @@ class HitomezashiFill(BaseFillExtension):
             all_graph_segments = [
                 segment for branch in self.graph.values() for segment in branch.values()
             ]
-            self.add_node(
+            self.add_path_node(
                 combine_segments(all_graph_segments).d(),
                 f"stroke:{color};stroke-width:2;fill:none",
                 label,
@@ -154,7 +133,7 @@ class HitomezashiFill(BaseFillExtension):
             for start_i in self.graph.keys():
                 for end_i in self.graph[start_i].keys():
                     try:
-                        self.add_node(self.graph[start_i][end_i].d(), f"stroke:{color};stroke-width:2;fill:none",
+                        self.add_path_node(self.graph[start_i][end_i].d(), f"stroke:{color};stroke-width:2;fill:none",
                                       f"{label}-{start_i}-{end_i}")
                     except AttributeError as e:
                         print(f"skipping {self.graph[start_i][end_i]}")
@@ -617,7 +596,7 @@ class HitomezashiFill(BaseFillExtension):
                 pattern_style = pattern_style.replace("fill:none", f"fill:{color}")
                 if "fill" not in pattern_style:
                     pattern_style += f";fill:{color}"
-            self.add_node(chained_line, pattern_style, pattern_id)
+            self.add_path_node(chained_line, pattern_style, pattern_id)
 
     def color_pattern(self, combined_lines):
         problem = Problem()
@@ -642,10 +621,10 @@ class HitomezashiFill(BaseFillExtension):
             for i in range(len(combined_lines)):
                 r,g,b = RGB_tuples[i]
                 _style = f"fill:#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
-                self.add_node(combined_lines[i].d(), style=_style, id=f"shape-{i}")
+                self.add_path_node(combined_lines[i].d(), style=_style, id=f"shape-{i}")
                 #print(i, connections[i])
                 #for j in connections[i]:
-                #    self.add_node(combined_lines[j].d(), style=_style, id=f"neighbor-{i}-{j}")
+                #    self.add_path_node(combined_lines[j].d(), style=_style, id=f"neighbor-{i}-{j}")
             debug_screen(self, "two_color_failure")
             raise ValueError("there is no solution!")
         else:

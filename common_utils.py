@@ -19,14 +19,35 @@ TOLERANCE = 0.2
 
 
 class BaseFillExtension(inkex.EffectExtension):
-    def __init__(self):
+    def __init__(self, effect_handle):
         inkex.EffectExtension.__init__(self)
+
+        self.curr_path_num = 0
+        self.current_shape = None
+        self.effect_handle = effect_handle
 
     def get_parent(self, node):
         parent = node.getparent()
         if parent is None:
             parent = self.document.getroot()
         return parent
+
+    def add_path_node(self, d_string, style, id):
+        parent = self.get_parent(self.current_shape)
+        _node = inkex.elements.PathElement()
+        _node.set_path(d_string)
+        _node.set("style", style)
+        _node.set("id", id)
+        if self.current_shape.get("transform"):
+            _node.set("transform", self.current_shape.get("transform"))
+        parent.insert(-1, _node)
+
+    def effect(self):
+        if self.svg.selected:
+            for i, shape in self.svg.selected.items():
+                self.curr_path_num = i
+                self.current_shape = shape
+                self.effect_handle(shape)
 
 
 def bounds_rect(pv):

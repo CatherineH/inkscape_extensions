@@ -2,18 +2,15 @@
 import inkex
 
 from common_utils import BaseFillExtension
-
+from inspect import getfile
 
 class WeaveFill(BaseFillExtension):
     def __init__(self):
-
-        print("hello world")
         BaseFillExtension.__init__(self, self.weave_fill)
         self.all_paths = []
         assert self.effect_handle == self.weave_fill
 
     def add_arguments(self, pars):
-        print("calling add arguments")
         pars.add_argument("--length", type=float, default=3, help="Length of segments")
         pars.add_argument(
             "--thickness",
@@ -24,7 +21,7 @@ class WeaveFill(BaseFillExtension):
 
     def weave_fill(self, shape):
         bbox = shape.bounding_box()
-
+        print(getfile(type(shape)))
         last_vert = False
         length = self.options.length
         thickness = self.options.thickness
@@ -70,7 +67,8 @@ class WeaveFill(BaseFillExtension):
             x += length/2.0
             last_vert = not last_vert
         # chop off the pieces that intersect the shape
-
+        container_path = inkex.Path(shape.get_path())
         for i, path in enumerate(self.all_paths):
-            path = shape.intersection(path)
+            self.add_path_node(str(path), "stroke:none;fill:green", f"segment_before{i}")
+            path = path.intersection(container_path)
             self.add_path_node(str(path), "stroke:none;fill:pink", f"segment{i}")

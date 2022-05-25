@@ -5,6 +5,7 @@ sys.path.append(dirname(dirname(abspath(__file__))))
 
 from weave_pattern import WeaveFill
 from inkex.tester import TestCase
+from inspect import getfile
 FOLDERNAME = join(dirname(dirname(abspath(__file__))), "output")
 
 
@@ -16,7 +17,6 @@ class TestWeaveFill(TestCase):
         _file = "no_fill.svg"
         args = [f"--id={target}", "--length=10", self.data_file(_file)]
         effect = self.effect_class()
-        print(effect.arg_parser)
         effect.run(args)
         assert effect.svg.selected
         effect.save(open(join(FOLDERNAME, f"{target}_WeaveFill.svg"), "wb"))

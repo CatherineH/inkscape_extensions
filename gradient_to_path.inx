@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+	<_name>Gradient to Path</_name>
+	<id>com.catherineh.filter.gradient_to_path</id>
+	<dependency type="executable" location="extensions">gradient_to_path.py</dependency>
+	<dependency type="executable" location="extensions">inkex.py</dependency>
+	<effect>
+		<object-type>all</object-type>
+		<effects-menu>
+			<submenu _name="Catherine's Extensions" />
+		</effects-menu>
+	</effect>
+	<script>
+		<command reldir="extensions" interpreter="python">gradient_to_path.py</command>
+	</script>
+	<param name="Circles" type="bool" default="True" gui-text="Use circles instead of lines" />
+</inkscape-extension>

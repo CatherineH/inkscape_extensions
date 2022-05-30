@@ -1,10 +1,12 @@
 from typing import KeysView
 import inkex
+
 try:
     from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
     from svgpathtools import Path, Line
 except ImportError:
     import sys
+
     inkex.utils.errormsg(f"svgpathtools is not available on {sys.executable}")
 from numpy import matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
@@ -76,9 +78,16 @@ def find_orientation(in_path):
         for j in range(3):
             _piece.append(points[(i + j) % len(points)])
         # x2*y3+x1*y2+y1*x3 - (y1*x2+y2*x3+x1*y3)
-        orientations += _piece[1].real * _piece[2].imag + _piece[0].real * _piece[1].imag + \
-                        _piece[0].imag * _piece[2].real - \
-                        (_piece[0].imag * _piece[1].real + _piece[1].imag * _piece[2].real + _piece[0].real * _piece[2].imag)
+        orientations += (
+            _piece[1].real * _piece[2].imag
+            + _piece[0].real * _piece[1].imag
+            + _piece[0].imag * _piece[2].real
+            - (
+                _piece[0].imag * _piece[1].real
+                + _piece[1].imag * _piece[2].real
+                + _piece[0].real * _piece[2].imag
+            )
+        )
     return orientations > 0
 
 
@@ -134,6 +143,7 @@ def make_stack_tree(lines, debug=False):
     -------
     a tuple - first element is a graph, second element is a list of root notes
     """
+
     @lru_cache(None)
     def pairwise_comparison(i, j, debug=False):
         if i == j:
@@ -149,10 +159,15 @@ def make_stack_tree(lines, debug=False):
         # returns True if path1 is inside path2
         xmin1, xmax1, ymin1, ymax1 = path1.bbox()
         xmin2, xmax2, ymin2, ymax2 = path2.bbox()
-        bbox_inside = xmin1 <= xmin2 + TOLERANCE <= xmax2 - TOLERANCE <= xmax1 and ymin1 <= ymin2 + TOLERANCE <= ymax2 - TOLERANCE<= ymax1
+        bbox_inside = (
+            xmin1 <= xmin2 + TOLERANCE <= xmax2 - TOLERANCE <= xmax1
+            and ymin1 <= ymin2 + TOLERANCE <= ymax2 - TOLERANCE <= ymax1
+        )
         if not bbox_inside:
             if debug:
-                print(f"bboxes for {j} inside {i} do not overlap: {xmin1}, {xmin2 + TOLERANCE}, {xmax2-TOLERANCE}, {xmax1} & {ymin1}, {ymin2+TOLERANCE}, {ymax2-TOLERANCE}, {ymax1} ")
+                print(
+                    f"bboxes for {j} inside {i} do not overlap: {xmin1}, {xmin2 + TOLERANCE}, {xmax2-TOLERANCE}, {xmax1} & {ymin1}, {ymin2+TOLERANCE}, {ymax2-TOLERANCE}, {ymax1} "
+                )
             return 0
         else:
             if debug:
@@ -165,11 +180,16 @@ def make_stack_tree(lines, debug=False):
             if len(intersections) > 0:
                 segments_inside.append(1)
             else:
-                print(f"line does not intersect {Path(segment).d()} container {path1.d()}")
-                segments_inside.append(is_inside(path1, segment.start, debug=debug, tolerance=0.01))
+                print(
+                    f"line does not intersect {Path(segment).d()} container {path1.d()}"
+                )
+                segments_inside.append(
+                    is_inside(path1, segment.start, debug=debug, tolerance=0.01)
+                )
         if debug:
             print(f"segments for {j} inside {i}: {segments_inside}")
         return all(segments_inside)
+
     if debug:
         print(f"make_stack_tree number of lines {len(lines)}")
     raw_stack_tree = defaultdict(list)
@@ -300,6 +320,7 @@ def combine_segments(segments):
 
 def svgpath_to_shapely_polygon(in_path):
     from shapely.geometry import Polygon
+
     ring_coords = []
     _coords = []
     last_point = None
@@ -307,9 +328,12 @@ def svgpath_to_shapely_polygon(in_path):
         if last_point:
             if segment.start == last_point:
                 _coords.append((segment.end.real, segment.end.imag))
-            else: # assume it's an inner segment
+            else:  # assume it's an inner segment
                 ring_coords.append(_coords)
-                _coords = [[segment.start.real, segment.start.imag], [segment.end.real, segment.end.imag]]
+                _coords = [
+                    [segment.start.real, segment.start.imag],
+                    [segment.end.real, segment.end.imag],
+                ]
         last_point = segment.end
     ring_coords.append(_coords)
     if len(ring_coords) == 1:
@@ -332,7 +356,9 @@ def format_complex(input_object):
         or isinstance(input_object, KeysView)
         or isinstance(input_object, set)
     ):
-        return ",".join([f"{num}" if isinstance(num, int) else f"{num:.1f}" for num in input_object ])
+        return ",".join(
+            [f"{num}" if isinstance(num, int) else f"{num:.1f}" for num in input_object]
+        )
     elif isinstance(input_object, int):
         return f"{input_object}"
     else:

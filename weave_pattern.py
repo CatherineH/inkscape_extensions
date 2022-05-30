@@ -1,8 +1,8 @@
-
 import inkex
 
 from common_utils import BaseFillExtension
 from inspect import getfile
+
 
 class WeaveFill(BaseFillExtension):
     def __init__(self):
@@ -21,37 +21,38 @@ class WeaveFill(BaseFillExtension):
 
     def weave_fill(self, shape):
         bbox = shape.bounding_box()
-        print(getfile(type(shape)))
         last_vert = False
         length = self.options.length
         thickness = self.options.thickness
         # horizontal lines
-        x = bbox.left-length/2.0
+        x = bbox.left - length / 2.0
         print(f"length {length} thickness {thickness} bbox {bbox}")
         while x < bbox.right:
             if len(self.all_paths) > 1000:
-                raise ValueError(f"too many paths! x span: {bbox.width} y span: {bbox.height} length {length}")
-            y = bbox.top - length/2.0
+                raise ValueError(
+                    f"too many paths! x span: {bbox.width} y span: {bbox.height} length {length}"
+                )
+            y = bbox.top - length / 2.0
             if last_vert:
-                y += length/2.0
+                y += length / 2.0
             y += thickness
             assert y < bbox.bottom
             while y < bbox.bottom:
                 path = inkex.Path()
-                path.append(inkex.paths.Move(x, y-thickness))
-                path.append(inkex.paths.Line(x+length-2*thickness, y-thickness))
-                path.append(inkex.paths.Line(x + length - 2*thickness, y))
+                path.append(inkex.paths.Move(x, y - thickness))
+                path.append(inkex.paths.Line(x + length - 2 * thickness, y - thickness))
+                path.append(inkex.paths.Line(x + length - 2 * thickness, y))
                 path.append(inkex.paths.Line(x, y))
                 path.append(inkex.paths.ZoneClose())
                 self.all_paths.append(path)
                 y += length
-            x += length/2.0
+            x += length / 2.0
             last_vert = not last_vert
         last_vert = False
         # vertical lines
         x = bbox.left - length / 2.0
         while x < bbox.right:
-            y = bbox.top - length/2.0
+            y = bbox.top - length / 2.0
             if last_vert:
                 y += length / 2.0
             assert y < bbox.bottom
@@ -59,16 +60,24 @@ class WeaveFill(BaseFillExtension):
                 path = inkex.Path()
                 path.append(inkex.paths.Move(x, y))
                 path.append(inkex.paths.Line(x + thickness, y))
-                path.append(inkex.paths.Line(x + thickness, y + length-2*thickness))
-                path.append(inkex.paths.Line(x, y + length-2*thickness))
+                path.append(inkex.paths.Line(x + thickness, y + length - 2 * thickness))
+                path.append(inkex.paths.Line(x, y + length - 2 * thickness))
                 path.append(inkex.paths.ZoneClose())
                 self.all_paths.append(path)
                 y += length
-            x += length/2.0
+            x += length / 2.0
             last_vert = not last_vert
         # chop off the pieces that intersect the shape
         container_path = inkex.Path(shape.get_path())
+        total_path = inkex.Path()
         for i, path in enumerate(self.all_paths):
-            self.add_path_node(str(path), "stroke:none;fill:green", f"segment_before{i}")
-            path = path.intersection(container_path)
-            self.add_path_node(str(path), "stroke:none;fill:pink", f"segment{i}")
+            # self.add_path_node(str(path), "stroke:none;fill:green", f"segment_before{i}")
+            # path = path.intersection(container_path)
+            total_path = total_path.union(path)
+            # if path:
+            #    self.add_path_node(str(path), "stroke:none;fill:pink", f"segment{i}")
+        shape.set("d", str(total_path))
+
+
+if __name__ == "__main__":
+    WeaveFill().run()

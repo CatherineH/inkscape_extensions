@@ -36,6 +36,16 @@ class TestGradientToPath(TestCase):
         assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
         assert len(new_path) > len(old_path)
 
+    def test_rainbow(self):
+        target = "target"
+        _file = "rainbow_saturated.svg"
+        args = [f"--id={target}", "--debug", "true", "--circles", "true", self.data_file(_file)]
+        effect = self.effect_class()
+        effect.run(args)
+        effect.save(open("output/rainbow_saturated.svg", "wb"))
+        old_path = effect.svg.getElementById(target).path
+        assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
+        assert len(new_path) > len(old_path)
 
 if __name__ == "__main__":
     TestGradientToPath().test_basic()

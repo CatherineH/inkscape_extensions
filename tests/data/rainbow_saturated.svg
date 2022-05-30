@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   id="svg1089"
+   sodipodi:docname="rainbow_saturated.svg"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)">
+  <metadata
+     id="metadata1093">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     id="namedview1091"
+     showgrid="false"
+     inkscape:zoom="3.4733333"
+     inkscape:cx="150"
+     inkscape:cy="75"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1089" />
+  <title
+     id="title1071">Rainbow Gradient saturated</title>
+  <defs
+     id="defs1086">
+    <linearGradient
+       id="r"
+       gradientTransform="scale(1.4142136)"
+       x1="0"
+       y1="0"
+       x2="70.710678"
+       y2="0"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="red"
+         id="stop1073" />
+      <stop
+         offset="0.333"
+         stop-color="#ff0"
+         id="stop1075" />
+      <stop
+         offset="0.50"
+         stop-color="#0f0"
+         id="stop1077" />
+      <stop
+         offset="0.666"
+         stop-color="cyan"
+         id="stop1079" />
+      <stop
+         offset="0.833"
+         stop-color="blue"
+         id="stop1081" />
+      <stop
+         offset="1"
+         stop-color="#f0f"
+         id="stop1083" />
+    </linearGradient>
+  </defs>
+  <rect
+     id="target"
+     width="100"
+     height="100"
+     fill="url(#r)"
+     style="fill:url(#r);stroke-width:1.41421"
+     x="0"
+     y="0" />
+</svg>

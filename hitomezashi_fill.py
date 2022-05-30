@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 from collections import defaultdict
 from constraint import Problem
+
 try:
     import inkex
 except ImportError:
     import sys
+
     raise ValueError(f"svgpathtools is not available on {sys.executable}")
 from time import time
 from common_utils import (
@@ -17,7 +19,7 @@ from common_utils import (
     is_inside,
     intersect_over_all,
     find_orientation,
-    svgpath_to_shapely_polygon
+    svgpath_to_shapely_polygon,
 )
 from random import random
 from svgpathtools import Line, Path, parse_path
@@ -46,7 +48,7 @@ class HitomezashiFill(BaseFillExtension):
         self.edges_to_visit = []
         self.visited_edges = []
         self.chained_lines = []
-        self.last_branches = [] # keep track of the last possible branch
+        self.last_branches = []  # keep track of the last possible branch
         self._debug_branches = []
         self._evaluated = []
 
@@ -133,8 +135,11 @@ class HitomezashiFill(BaseFillExtension):
             for start_i in self.graph.keys():
                 for end_i in self.graph[start_i].keys():
                     try:
-                        self.add_path_node(self.graph[start_i][end_i].d(), f"stroke:{color};stroke-width:2;fill:none",
-                                      f"{label}-{start_i}-{end_i}")
+                        self.add_path_node(
+                            self.graph[start_i][end_i].d(),
+                            f"stroke:{color};stroke-width:2;fill:none",
+                            f"{label}-{start_i}-{end_i}",
+                        )
                     except AttributeError as e:
                         print(f"skipping {self.graph[start_i][end_i]}")
                         pass
@@ -246,13 +251,15 @@ class HitomezashiFill(BaseFillExtension):
             for point in chained_line:
                 index = chained_line.index(point)
                 try:
-                    loop_index = chained_line.index(point, index+1)
+                    loop_index = chained_line.index(point, index + 1)
                     break
                 except ValueError as err:
                     pass
             if loop_index:
                 if debug:
-                    print(f"chained_line {len(self._debug_branches)} loops back on itself at index {loop_index} {format_complex(chained_line)} ")
+                    print(
+                        f"chained_line {len(self._debug_branches)} loops back on itself at index {loop_index} {format_complex(chained_line)} "
+                    )
                 return 0
         if debug:
             print(f"chained line {format_complex(chained_line)} is valid, continuing")
@@ -271,12 +278,10 @@ class HitomezashiFill(BaseFillExtension):
             return None
         branches = list(self.graph[chained_line[-1]].keys())
         # remove the ones already on the line, but not the first point
-        branches = [
-            point
-            for point in branches
-            if point not in chained_line[1:]
-        ]
-        branches.sort(key=lambda x: abs(self.graph_locs[x] - self.graph_locs[chained_line[0]]))
+        branches = [point for point in branches if point not in chained_line[1:]]
+        branches.sort(
+            key=lambda x: abs(self.graph_locs[x] - self.graph_locs[chained_line[0]])
+        )
 
         for branch in branches:
             chain_to_add = deepcopy(chained_line) + [branch]
@@ -287,10 +292,10 @@ class HitomezashiFill(BaseFillExtension):
         return None
 
     def chain_graph(self):
-        #self.plot_graph(connected=False)
+        # self.plot_graph(connected=False)
         self.simplify_graph()
-        #self.plot_graph(color="blue", label="simplified_graph", connected=False)
-        #debug_screen(self, "test_graph_simplify")
+        # self.plot_graph(color="blue", label="simplified_graph", connected=False)
+        # debug_screen(self, "test_graph_simplify")
         self.audit_graph()
 
         # algorithm design
@@ -305,7 +310,9 @@ class HitomezashiFill(BaseFillExtension):
             chain_start_time = time()
             curr_edge = self.edges_to_visit.pop()
 
-            print(f"evaluating {curr_edge} num edges to visit: {len(self.edges_to_visit)} visited: {self.visited_edges}")
+            print(
+                f"evaluating {curr_edge} num edges to visit: {len(self.edges_to_visit)} visited: {self.visited_edges}"
+            )
 
             if curr_edge in self.visited_edges:
                 print(f"already visited {curr_edge}")
@@ -342,7 +349,10 @@ class HitomezashiFill(BaseFillExtension):
             print("adding chained line", len(self.chained_lines), chained_line)
             self.chained_lines.append(chained_line)
             for i in range(len(chained_line)):
-                _edge = [chained_line[i], chained_line[(i+1) % (len(chained_line)-1)]]
+                _edge = [
+                    chained_line[i],
+                    chained_line[(i + 1) % (len(chained_line) - 1)],
+                ]
                 if _edge not in self.visited_edges:
                     print(f"adding edge {_edge}")
                     self.visited_edges.append(deepcopy(_edge))
@@ -350,7 +360,7 @@ class HitomezashiFill(BaseFillExtension):
                 if _edge not in self.visited_edges:
                     print(f"adding edge reversed {_edge}")
                     self.visited_edges.append(_edge)
-            #self.visited_edges.sort(key=lambda x: x[0] * len(self.visited_edges) + x[1])
+            # self.visited_edges.sort(key=lambda x: x[0] * len(self.visited_edges) + x[1])
 
         print(f"chaining took {time()-start_time} num lines {len(self.chained_lines)}")
         for i, chained_line in enumerate(self.chained_lines):
@@ -420,8 +430,8 @@ class HitomezashiFill(BaseFillExtension):
         return len(self.graph_locs) - 1
 
     def simplify_graph(self):
-        """ merge any nodes that have only two outputs into a path between the two.
-        Keep doing this until there are no more nodes to evaluate """
+        """merge any nodes that have only two outputs into a path between the two.
+        Keep doing this until there are no more nodes to evaluate"""
         all_nodes = deepcopy(list(self.graph.keys()))
         print(f"before simplification the graph had {len(all_nodes)} nodes")
         while all_nodes:
@@ -437,15 +447,24 @@ class HitomezashiFill(BaseFillExtension):
 
             start_i = branches[0]
             end_i = branches[1]
-            if start_i == to_evaluate or end_i == to_evaluate or start_i == end_i or end_i in self.graph[start_i] \
-                    or start_i in self.graph[end_i]:
+            if (
+                start_i == to_evaluate
+                or end_i == to_evaluate
+                or start_i == end_i
+                or end_i in self.graph[start_i]
+                or start_i in self.graph[end_i]
+            ):
                 # skip over reducing this one
                 continue
             if not isinstance(self.graph[start_i][to_evaluate], Path):
-                self.graph[start_i][to_evaluate] = Path(self.graph[start_i][to_evaluate])
+                self.graph[start_i][to_evaluate] = Path(
+                    self.graph[start_i][to_evaluate]
+                )
             if not isinstance(self.graph[to_evaluate][end_i], Path):
                 self.graph[to_evaluate][end_i] = Path(self.graph[to_evaluate][end_i])
-            segments = [*self.graph[start_i][to_evaluate]] + [*self.graph[to_evaluate][end_i]]
+            segments = [*self.graph[start_i][to_evaluate]] + [
+                *self.graph[to_evaluate][end_i]
+            ]
             segment = Path(*segments)
 
             self.graph[start_i][end_i] = segment
@@ -575,7 +594,7 @@ class HitomezashiFill(BaseFillExtension):
             dump(lines, open("tests/data/lines.pickle", "wb"))
 
             combined_lines, labels = stack_lines(lines)
-            #combined_lines = lines
+            # combined_lines = lines
             color_fills = self.color_pattern(combined_lines)
             lines = [line.d() for line in combined_lines]
             print(f"labels {len(labels)} {labels}")
@@ -619,11 +638,11 @@ class HitomezashiFill(BaseFillExtension):
             HSV_tuples = [(x * 1.0 / N, 0.5, 0.5) for x in range(N)]
             RGB_tuples = [colorsys.hsv_to_rgb(*x) for x in HSV_tuples]
             for i in range(len(combined_lines)):
-                r,g,b = RGB_tuples[i]
+                r, g, b = RGB_tuples[i]
                 _style = f"fill:#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
                 self.add_path_node(combined_lines[i].d(), style=_style, id=f"shape-{i}")
-                #print(i, connections[i])
-                #for j in connections[i]:
+                # print(i, connections[i])
+                # for j in connections[i]:
                 #    self.add_path_node(combined_lines[j].d(), style=_style, id=f"neighbor-{i}-{j}")
             debug_screen(self, "two_color_failure")
             raise ValueError("there is no solution!")

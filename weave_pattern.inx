@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+	<_name>Weave Pattern</_name>
+	<id>com.catherineh.filter.weave_pattern</id>
+	<dependency type="executable" location="extensions">weave_pattern.py</dependency>
+	<dependency type="executable" location="extensions">inkex.py</dependency>
+	<effect>
+		<object-type>all</object-type>
+		<effects-menu>
+			<submenu _name="Catherine's Extensions" />
+		</effects-menu>
+	</effect>
+	<script>
+		<command reldir="extensions" interpreter="python">weave_pattern.py</command>
+	</script>
+	<param name="length" type="float" default="3" gui-text="length of segments" />
+	<param name="thickness" type="float" default="0.5" gui-text="thickness of the weave" />
+</inkscape-extension>

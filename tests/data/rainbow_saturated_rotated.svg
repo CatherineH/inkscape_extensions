@@ -7,10 +7,10 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   version="1.1"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)"
+   sodipodi:docname="rainbow_saturated_rotated.svg"
    id="svg1089"
-   sodipodi:docname="rainbow_saturated.svg"
-   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)">
+   version="1.1">
   <metadata
      id="metadata1093">
     <rdf:RDF>
@@ -19,6 +19,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>Rainbow Gradient saturated</dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -49,7 +50,7 @@
      id="defs1086">
     <linearGradient
        id="r"
-       gradientTransform="matrix(1.4142136,0,0,1.4142136,-1.3417969e-5,3.5566406e-6)"
+       gradientTransform="matrix(1.4142136,0,0,1.4142136,2.5911709,-99.136276)"
        x1="0"
        y1="0"
        x2="70.710678"
@@ -88,5 +89,6 @@
      fill="url(#r)"
      style="fill:url(#r);stroke-width:1.41421"
      x="0"
-     y="0" />
+     y="-100"
+     transform="rotate(90)" />
 </svg>

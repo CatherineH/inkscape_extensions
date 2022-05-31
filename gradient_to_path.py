@@ -2,6 +2,7 @@
 import random
 import inkex
 from math import atan2, sin, cos
+from collections import defaultdict
 
 from common_utils import (
     bounds_rect,
@@ -43,7 +44,8 @@ class GradientToPath(BaseFillExtension):
                 self.get_all_gradients(child)
 
     def recursive_replace_gradient(self, node):
-        if self.options.debug == "true":
+        self.get_all_gradients(self.document.getroot())
+        if self.options.circles == "true":
             self.circles = True
         if node.tag in [inkex.addNS("rect", "svg"), inkex.addNS("path", "svg")]:
             node_id = node.get("id")
@@ -301,8 +303,10 @@ class GradientToPath(BaseFillExtension):
         bbox = node.bounding_box()
         MAX_RETRIES = 10
         current_retry = 0
+        transf = inkex.transforms.Transform(node.get("transform", None))
 
         circle_locations = []
+        paths = defaultdict(str)
         while current_retry < MAX_RETRIES:
             _x = random.random() * (bbox.right - bbox.left) + bbox.left
             _y = random.random() * (bbox.bottom - bbox.top) + bbox.top
@@ -322,13 +326,23 @@ class GradientToPath(BaseFillExtension):
             current_retry = 0
             _color = self.sample_color(bbox, _x, _y)
             circle_locations.append((_x, _y, _color))
-            _node = inkex.elements.EllipseBase.new(
-                center=inkex.transforms.Vector2d(_x, _y), radius=self.spacing
+
+            _node = inkex.elements.Circle.new(
+                center=inkex.transforms.Vector2d(_x, _y), radius=self.spacing/2
             )
-            _node.set(
-                "style",
-                f"stroke:{_color[0]};stroke-opacity:{_color[1]};stroke-width:{self.spacing/2}",
+            paths[_color] += " "+_node.get_path()
+
+        for i, offset in enumerate(self.offsets):
+            _node = inkex.elements.PathElement()
+
+            _color = self.stops_dict[offset]
+            _node.set("d", paths[offset])
+            _node.set("style",
+                f"fill:none;stroke:{_color[0]};stroke-opacity:{_color[1]};stroke-width:{self.spacing/2}",
             )
+            if transf:
+                _node.set("transform", node.get("transform"))
+            _node.set("id", f"points{i}")
             self.get_parent(node).insert(0, _node)
 
     def sample_color(self, bbox, _x, _y):
@@ -342,19 +356,21 @@ class GradientToPath(BaseFillExtension):
         fraction = projection / total_span
         lower_i = None
         upper_i = None
-        for i in range(len(self.offsets)):
-            if fraction > self.offsets[i]:
+        for i in range(len(self.offsets)-1):
+            if self.offsets[i] <= fraction < self.offsets[i+1]:
                 upper_i = i + 1
                 lower_i = i
                 break
-        assert lower_i and upper_i
+        assert lower_i is not None and upper_i is not None
         # calculate the distances from each
         span_distance = abs(self.offsets[lower_i] - self.offsets[upper_i])
         distance_lower = abs(fraction - self.offsets[lower_i]) / span_distance
         distance_upper = abs(fraction - self.offsets[upper_i]) / span_distance
         _random = random.random()
-        if _random < distance_lower:
-            return self.stops_dict[self.offsets[lower_i]]
+        if _random <= distance_upper:
+            return self.offsets[lower_i]
+        else:
+            return self.offsets[upper_i]
 
 
 if __name__ == "__main__":

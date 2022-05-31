@@ -44,8 +44,41 @@ class TestGradientToPath(TestCase):
         effect.run(args)
         effect.save(open("output/rainbow_saturated.svg", "wb"))
         old_path = effect.svg.getElementById(target).path
-        assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
-        assert len(new_path) > len(old_path)
+        for i in range(0, 5):
+            print(f"paths{i}")
+            new_path = effect.svg.getElementById(f"points{i}").path
+            assert new_path
+
+    def test_gradient_sampling(self):
+        effect = self.effect_class()
+        target = "target"
+        _file = "rainbow_saturated.svg"
+        args = [f"--id={target}", "--debug", "true", "--circles", "true", self.data_file(_file)]
+        effect.run(args)
+        bbox = inkex.transforms.BoundingBox(x=(0, 100), y=(0, 100))
+        red_i = effect.sample_color(bbox, 0, 0)
+        print(effect.stops_dict)
+        assert red_i == 0.0
+        red_color = effect.stops_dict[red_i]
+        assert red_color == ("red", "1")
+        blue_i = effect.sample_color(bbox, 99.9, 0)
+        assert blue_i == 1.0
+        blue_color = effect.stops_dict[blue_i]
+        assert blue_color == ("#f0f", "1")
+
+    def test_rainbow_rotated(self):
+        target = "target"
+        _file = "rainbow_saturated_rotated.svg"
+        args = [f"--id={target}", "--debug", "true", "--circles", "true", self.data_file(_file)]
+        effect = self.effect_class()
+        effect.run(args)
+        effect.save(open("output/rainbow_saturated.svg", "wb"))
+        old_path = effect.svg.getElementById(target).path
+        for i in range(0, 5):
+            print(f"paths{i}")
+            new_path = effect.svg.getElementById(f"points{i}").path
+            assert new_path
+            
 
 if __name__ == "__main__":
     TestGradientToPath().test_basic()

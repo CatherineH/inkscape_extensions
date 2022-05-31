@@ -13,5 +13,5 @@
 	<script>
 		<command reldir="extensions" interpreter="python">gradient_to_path.py</command>
 	</script>
-	<param name="Circles" type="bool" default="True" gui-text="Use circles instead of lines" />
+	<param name="circles" type="bool" default="True" gui-text="Use circles instead of lines" />
 </inkscape-extension>

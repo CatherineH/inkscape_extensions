@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import random
+from copy import deepcopy
+
 import inkex
 from math import atan2, sin, cos
 from collections import defaultdict
+from svgpathtools.path import Path
 
 from common_utils import (
     bounds_rect,
@@ -25,12 +28,22 @@ class GradientToPath(BaseFillExtension):
 
     def add_arguments(self, pars):
         pars.add_argument("--debug", type=str, default="false", help="debug shapes")
-        pars.add_argument("--circles", type=str, default="false", help="debug shapes")
+        pars.add_argument("--circles", type=str, default="false", help="use circles instead of lines")
+        pars.add_argument("--spacing", type=float, default=1, help="spacing between circles")
 
     def get_all_gradients(self, node):
         if node.tag.find("Gradient") >= 0:
             _id = node.attrib.get("id")
-            self._gradients[_id] = node
+            # TODO: find if there's some sort of auto parsing here
+            self._gradients[_id] = inkex.LinearGradient(attrib={"x1": node.get("x1", "0"), "y1": node.get("y1", "0"),
+                                                                "x2": node.get("x2", "1"), "y2": node.get("y2", "1"),
+                                                                "gradientUnits": node.get("gradientUnits", "objectBoundingBox")})
+            if node.get("gradientTransform"):
+                self._gradients[_id].gradientTransform = inkex.transforms.Transform(node.get("gradientTransform"))
+            for stop in node.stops:
+                _style = inkex.Style({"stop-color": inkex.Color(stop.attrib.get("stop-color")), "stop-opacity": float(stop.attrib.get("stop-opacity", 1.0))})
+                self._gradients[_id].add(inkex.Stop().update(offset=stop.attrib.get("offset", "0"), style=_style))
+            assert self._gradients[_id].get("x1") == node.get("x1")
         elif node.tag.find("style") >= 0:
             for _stylesheet in node.stylesheet():
                 for elem in self.svg.xpath(_stylesheet.to_xpath()):
@@ -47,6 +60,7 @@ class GradientToPath(BaseFillExtension):
         self.get_all_gradients(self.document.getroot())
         if self.options.circles == "true":
             self.circles = True
+        self.spacing = self.options.spacing
         if node.tag in [inkex.addNS("rect", "svg"), inkex.addNS("path", "svg")]:
             node_id = node.get("id")
             pattern_id = None
@@ -76,32 +90,7 @@ class GradientToPath(BaseFillExtension):
                 )
                 return
             # vector direction
-            gradient = self._gradients[pattern_id]
-            x1 = float(gradient.attrib.get("x1", "0"))
-            x2 = float(gradient.attrib.get("x2", "1"))
-            y1 = float(gradient.attrib.get("y1", "0"))
-            y2 = float(gradient.attrib.get("y2", "0"))
-            # if the angle isn't horizontal or vertical, throw an error
-            self.gradient_angle = atan2(x2 - x1, y2 - y1)
-
-            stops = gradient.stops
-            stops.reverse()
-            if not stops:
-                inkex.utils.errormsg(f"no stops for {pattern_id}")
-                return
-            for stop in stops:
-                offset = stop.attrib.get("offset", "0")
-                if "%" in offset:
-                    offset = float(offset.replace("%", "")) / 100.0
-                else:
-                    offset = float(offset)
-                self.stops_dict[offset] = (
-                    stop.attrib["stop-color"],
-                    stop.attrib.get("stop-opacity", "1"),
-                )
-            if not self.stops_dict:
-                inkex.utils.errormsg("no stops_dict")
-                return
+            self.gradient = self._gradients[pattern_id]
 
             self.offsets = sorted(self.stops_dict.keys())
             # line_colors = self.interleave_block(offsets, stops_dict, num_lines)
@@ -301,15 +290,28 @@ class GradientToPath(BaseFillExtension):
 
     def generate_circles(self, node):
         bbox = node.bounding_box()
+        container_path = Path(pattern_vector_to_d(node))
+        print(bbox, container_path.bbox(), container_path.d())
+        c_bbox = container_path.bbox()
+        bbox = inkex.transforms.BoundingBox(x=(c_bbox[0], c_bbox[1]), y=(c_bbox[2], c_bbox[3]))
         MAX_RETRIES = 10
         current_retry = 0
         transf = inkex.transforms.Transform(node.get("transform", None))
 
         circle_locations = []
         paths = defaultdict(str)
+        curr_i = 0
+        stops_used = []
         while current_retry < MAX_RETRIES:
+            curr_i += 1
+            if curr_i > 50000:
+                raise ValueError("something is going wrong, unable to fill shape")
             _x = random.random() * (bbox.right - bbox.left) + bbox.left
             _y = random.random() * (bbox.bottom - bbox.top) + bbox.top
+            # first confirm that the _x, _y is inside
+            is_inside = inkex.boolean_operations.segment_is_inside(container_path, _x+_y*1j)
+            if not is_inside:
+                continue
             too_close = False
             for circle_location in circle_locations:
                 distance = (
@@ -324,54 +326,44 @@ class GradientToPath(BaseFillExtension):
             if too_close:
                 continue
             current_retry = 0
-            _color = self.sample_color(bbox, _x, _y)
+            _color = deepcopy(self.sample_color(bbox, inkex.transforms.Vector2d(_x, _y) , debug=self.options.debug == "true"))
             circle_locations.append((_x, _y, _color))
+            if self.options.debug == "true":
+                print(f"adding circle {_x} {_y} {_color}")
 
             _node = inkex.elements.Circle.new(
                 center=inkex.transforms.Vector2d(_x, _y), radius=self.spacing/2
             )
-            paths[_color] += " "+_node.get_path()
+            if _color not in stops_used:
+                stops_used.append(_color)
+            stop_i = stops_used.index(_color)
+            paths[stop_i] += " "+_node.get_path()
 
-        for i, offset in enumerate(self.offsets):
+        for i, stop_i in enumerate(list(paths.keys())):
+            _color = stops_used[stop_i]
+            print(i, _color, paths[stop_i])
             _node = inkex.elements.PathElement()
-
-            _color = self.stops_dict[offset]
-            _node.set("d", paths[offset])
+            _node.set("d", paths[stop_i])
             _node.set("style",
-                f"fill:none;stroke:{_color[0]};stroke-opacity:{_color[1]};stroke-width:{self.spacing/2}",
+                f"fill:none;stroke:{_color.get('stop-color')};stroke-opacity:{_color.get('stop-opacity', '1')};stroke-width:{self.spacing/2}",
             )
             if transf:
                 _node.set("transform", node.get("transform"))
             _node.set("id", f"points{i}")
-            self.get_parent(node).insert(0, _node)
+            self.get_parent(node).insert(-1, _node)
 
-    def sample_color(self, bbox, _x, _y):
-        total_span = bbox.height * sin(self.gradient_angle) + bbox.width * cos(
-            self.gradient_angle
-        )
-        angle_to_point = atan2(_x, _y)
-        projection = (_x**2 + _y**2) ** 0.5 * cos(
-            angle_to_point - self.gradient_angle
-        )
-        fraction = projection / total_span
-        lower_i = None
-        upper_i = None
-        for i in range(len(self.offsets)-1):
-            if self.offsets[i] <= fraction < self.offsets[i+1]:
-                upper_i = i + 1
-                lower_i = i
-                break
-        assert lower_i is not None and upper_i is not None
-        # calculate the distances from each
-        span_distance = abs(self.offsets[lower_i] - self.offsets[upper_i])
-        distance_lower = abs(fraction - self.offsets[lower_i]) / span_distance
-        distance_upper = abs(fraction - self.offsets[upper_i]) / span_distance
+    def sample_color(self, bbox, point, debug=False):
+        stops = self.gradient.sample_color(bbox, point, debug=debug)
         _random = random.random()
-        if _random <= distance_upper:
-            return self.offsets[lower_i]
-        else:
-            return self.offsets[upper_i]
+        if debug:
+            print(stops, _random)
 
+        if len(stops) == 1:
+            return stops[0][1].style
+        if _random >= stops[0][0]:
+            return stops[0][1].style
+        else:
+            return stops[1][1].style
 
 if __name__ == "__main__":
     GradientToPath().run()

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="122.4411mm"
+   height="51.516758mm"
+   viewBox="0 0 122.4411 51.516758"
+   version="1.1"
+   id="svg229"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)"
+   sodipodi:docname="rainbow_saturated_odd.svg">
+  <defs
+     id="defs223">
+    <linearGradient
+       id="rainbow"
+       gradientTransform="matrix(1.5416627,0,0,0.6486503,58.424902,202.57774)"
+       x1="31.815714"
+       y1="-296.33862"
+       x2="14.837687"
+       y2="-255.9704"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="red"
+         id="stop159" />
+      <stop
+         offset="0.42046049"
+         stop-color="#ff0"
+         id="stop161" />
+      <stop
+         offset="0.5"
+         stop-color="#0f0"
+         id="stop163" />
+      <stop
+         offset="0.666"
+         stop-color="cyan"
+         id="stop165" />
+      <stop
+         offset="0.81770134"
+         stop-color="blue"
+         id="stop167" />
+      <stop
+         offset="1"
+         stop-color="#f0f"
+         id="stop169" />
+    </linearGradient>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.35"
+     inkscape:cx="225.67047"
+     inkscape:cy="237.3545"
+     inkscape:document-units="mm"
+     inkscape:current-layer="svg229"
+     inkscape:document-rotation="0"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="1267"
+     inkscape:window-height="1032"
+     inkscape:window-x="156"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata226">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <path
+     id="target"
+     style="fill:url(#rainbow);stroke-width:1"
+     d="M -1.2e-05 2.3e-05 L 38.8446 25.9664 L 122.441 51.5168 L 107.474 10.3576 Z" />
+</svg>

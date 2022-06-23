@@ -44,6 +44,30 @@ class BaseFillExtension(inkex.EffectExtension):
             _node.set("transform", self.current_shape.get("transform"))
         parent.insert(-1, _node)
 
+    def add_marker(self, point, label="marker", color="red"):
+        marker_size = self.options.length / 10
+
+        marker = [
+            Line(
+                point + marker_size + marker_size * 1j,
+                point - marker_size + marker_size * 1j,
+            ),
+            Line(
+                point - marker_size + marker_size * 1j,
+                point - marker_size - marker_size * 1j,
+            ),
+            Line(
+                point - marker_size - marker_size * 1j,
+                point + marker_size - marker_size * 1j,
+            ),
+            Line(
+                point + marker_size - marker_size * 1j,
+                point + marker_size + marker_size * 1j,
+            ),
+        ]
+        self.add_path_node(Path(*marker).d(), f"fill:{color};stroke:none", label)
+
+
     def effect(self):
         if self.svg.selected:
             for i, shape in self.svg.selected.items():
@@ -371,7 +395,7 @@ def limit_atan(imag, real):
     return atan(imag / real)
 
 
-def get_clockwise(last_point, curr_point, branches):
+def get_clockwise(last_point, curr_point, branches, counter=False):
     # if the previous point was on the inside, pick the clockwise outside location
     unit_root = last_point - curr_point
     units = [branch - curr_point for branch in branches]
@@ -379,4 +403,5 @@ def get_clockwise(last_point, curr_point, branches):
     angles = [
         (limit_atan(unit.imag, unit.real) - angle_root) % 2 * 3.14159 for unit in units
     ]
-    return branches[angles.index(max(angles))]
+    compare_func = min if counter else max
+    return angles.index(compare_func(angles)), branches[angles.index(compare_func(angles))]

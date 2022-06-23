@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+	<_name>Hitomezashi Fill</_name>
+	<id>com.catherineh.filter.hitomezashi_fill</id>
+	<dependency type="executable" location="extensions">jewel_texture.py</dependency>
+	<dependency type="executable" location="extensions">inkex.py</dependency>
+	<effect>
+		<object-type>all</object-type>
+		<effects-menu>
+			<submenu _name="Catherine's Extensions" />
+		</effects-menu>
+	</effect>
+	<script>
+		<command reldir="extensions" interpreter="python">jewel_texture.py</command>
+	</script>
+	<param name="maximum" type="float" default="30" gui-text="The maximum facet length" />
+	<param name="minimum" type="float" default="10" gui-text="The minimum facet length" />
+	<param name="colors" type="input" default="4" gui-text="The number of colors - may not find a solution if the number is under three" />
+
+</inkscape-extension>

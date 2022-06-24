@@ -6,6 +6,7 @@ from common_utils import (
     BaseFillExtension,
     get_clockwise
 )
+from math import sin, cos
 
 from collections import defaultdict
 import random
@@ -89,14 +90,68 @@ class JewelTexture(BaseFillExtension):
                 [j for j in range(len(self.locations)) if abs(self.locations[j] - _bottom_right) < self.spacing / 8.0]
             if _bottom_right_index:
                 _bottom_right_index = _bottom_right_index.pop()
-            # if _bottom_right_index and _bottom_left_index and _left_index:
-            #     self.add_marker(self.locations[_bottom_right_index], label="bottom_right")
-            #     self.add_marker(self.locations[_bottom_left_index], color="blue", label="bottom_left")
-            #     self.add_marker(self.locations[_left_index], color="green",  label="left")
-            #     self.add_marker(self.locations[i], color="white", label="i")
-            #     return
-            #chain_cycle(i, _left_index, _bottom_left_index)
-            chain_cycle(i, _bottom_left_index, _left_index)
+            chain_cycle(i, _left_index, _bottom_left_index)
+            chain_cycle(i, _bottom_right_index, _bottom_left_index)
+        for i in range(len(self.locations)):
+            _angle = 3.14159*random.random()
+            self.locations[i] += self.options.minimum*random.random()*(sin(_angle) + cos(_angle)*1j)
+        # see which of the edges intersect now
+        to_prune = []
+        for i, _edge in enumerate(self.edges):
+            if i in to_prune:
+                continue
+            for j, _edge_compare in enumerate(self.edges):
+                if i == j:
+                    continue
+                if j in to_prune:
+                    continue
+                line1 = Line(start=self.locations[_edge[0]], end=self.locations[_edge[1]])
+                line2 = Line(start=self.locations[_edge_compare[0]], end=self.locations[_edge_compare[1]])
+                if line1.intersect(line2):
+                    to_prune.append(i)
+                    to_prune.append(j)
+        assert to_prune
+        print(to_prune)
+        # for each of the edges to prune, merge the edge with its friend
+        for i in to_prune:
+            cycle_edges = [cycle_i for cycle_i, _edge in enumerate(self.cycle_edges) if i in _edge]
+            if len(cycle_edges) != 2:
+                continue
+            cycle_edges.sort(reverse=True)
+            new_cycle = []
+            to_delete = []
+            okay_to_merge = True
+            for cycle_i in cycle_edges:
+                if len(self.cycle_edges[cycle_i]) > 4:
+                    # don't bother merging because it's already been merged
+                    okay_to_merge = False
+                    break
+                for edge_i in self.cycle_edges[cycle_i]:
+                    if edge_i == i:
+                        continue
+                    new_cycle.append(edge_i)
+                to_delete.append(cycle_i)
+            if okay_to_merge:
+                for _prune_i in to_delete:
+                    print(f"deleting {self.cycle_edges[_prune_i]}")
+                    del self.cycle_edges[_prune_i]
+                # now make sure the new_cycle is ordered correctly
+                _edges =  {self.edges[cycle_i] for cycle_i in new_cycle}
+                print(f"cycle to reorder: {_edges}")
+                to_add = new_cycle
+                new_cycle_ordered = [to_add.pop()]
+                entry_i = 0
+                while to_add:
+                    to_add_locs = [loc for loc in self.edges[to_add[entry_i]]]
+                    last_locs = [loc for loc in self.edges[new_cycle_ordered[-1]]]
+                    if set(to_add_locs).intersection(set(last_locs)):
+                        new_cycle_ordered.append(to_add.pop(entry_i))
+                        continue
+
+                    entry_i += 1
+                    entry_i = entry_i % (len(to_add) -1)
+                print(f"adding new cycle {new_cycle_ordered}")
+                self.cycle_edges.append(new_cycle_ordered)
         if not self.cycle_edges:
             for i, _location in enumerate(self.locations):
                 self.add_marker(_location, label=f"location{i}")
@@ -330,15 +385,20 @@ class JewelTexture(BaseFillExtension):
         colors = {0: "black", 1:"red", 2:"pink", 3:"maroon"}
         color_paths = defaultdict(list)
         for i, cycle in enumerate(self.cycle_edges):
+            _color = inkex.Color(colors[self.solution[i]])
+            output = Path(*self.paths[i])
+            self.add_path_node(output.d(), style=f"fill:{_color}", id=f"shapes{i}")
+
             color_paths[self.solution[i]] += self.paths[i]
 
+        """
         for color_i in color_paths:
 
             _color = inkex.Color(colors[color_i])
             output = Path(*color_paths[color_i])
             print(color_i, len(output))
             self.add_path_node(output.d(), style=f"fill:{_color}", id=f"shapes{color_i}")
-
+        """
 
 if __name__ == "__main__":
     JewelTexture().run()

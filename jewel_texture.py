@@ -136,21 +136,29 @@ class JewelTexture(BaseFillExtension):
                     print(f"deleting {self.cycle_edges[_prune_i]}")
                     del self.cycle_edges[_prune_i]
                 # now make sure the new_cycle is ordered correctly
-                _edges =  {self.edges[cycle_i] for cycle_i in new_cycle}
-                print(f"cycle to reorder: {_edges}")
-                to_add = new_cycle
-                new_cycle_ordered = [to_add.pop()]
-                entry_i = 0
-                while to_add:
-                    to_add_locs = [loc for loc in self.edges[to_add[entry_i]]]
-                    last_locs = [loc for loc in self.edges[new_cycle_ordered[-1]]]
-                    if set(to_add_locs).intersection(set(last_locs)):
-                        new_cycle_ordered.append(to_add.pop(entry_i))
-                        continue
+                _edges =  [self.edges[cycle_i] for cycle_i in new_cycle]
+                print(f"cycle to reorder: {_edges}, constructing graph")
+                _cycle_graphs = defaultdict(list)
+                for edge_i in new_cycle:
+                    for edge_j in new_cycle:
+                        if edge_i == edge_j:
+                            continue
+                        if set(self.edges[edge_i]).intersection(set(self.edges[edge_j])):
+                            if edge_j not in _cycle_graphs[edge_i]:
+                                _cycle_graphs[edge_i].append(edge_j)
+                            if edge_i not in _cycle_graphs[edge_j]:
+                                _cycle_graphs[edge_j].append(edge_i)
+                print(f"ordering graph: {_cycle_graphs}")
+                new_cycle_ordered = [new_cycle[0]]
+                while len(new_cycle_ordered) < len(new_cycle):
+                    print(len(new_cycle_ordered), len(new_cycle))
+                    _branches = _cycle_graphs[new_cycle_ordered[-1]]
 
-                    entry_i += 1
-                    entry_i = entry_i % (len(to_add) -1)
-                print(f"adding new cycle {new_cycle_ordered}")
+                    _branches = list(set(_branches) - set(new_cycle_ordered))
+                    new_cycle_ordered.append(_branches[0])
+                _edges = [self.edges[cycle_i] for cycle_i in new_cycle_ordered]
+
+                print(f"adding new cycle {new_cycle_ordered} {_edges}")
                 self.cycle_edges.append(new_cycle_ordered)
         if not self.cycle_edges:
             for i, _location in enumerate(self.locations):
@@ -309,11 +317,24 @@ class JewelTexture(BaseFillExtension):
 
     def generate_permutated_paths(self):
         self.paths = []
+
         for _cycle in self.cycle_edges:
             _path = []
+
             for _cycle_index in _cycle:
                 _edge = self.edges[_cycle_index]
                 _path.append(Line(start=self.locations[_edge[0]],end=self.locations[_edge[1]]))
+            for i in range(len(_path)):
+                # if the path needs to be reversed, reverse it
+                next_i = (i+1) % len(_path)
+                if abs(_path[i].end - _path[next_i].start) > self.spacing/8.0:
+                    continue
+                if abs(_path[i].end - _path[next_i].end) > self.spacing / 8.0:
+                    _path[next_i] = Line(end=_path[next_i].start, start=_path[next_i].end)
+                    continue
+                if abs(_path[i].start - _path[next_i].start) > self.spacing / 8.0:
+                    _path[i]  = Line(end=_path[i].start, start=_path[i].end)
+
             self.paths.append(Path(*_path))
 
     def build_paths(self):

@@ -21,12 +21,13 @@ TOLERANCE = 0.2
 
 
 class BaseFillExtension(inkex.EffectExtension):
-    def __init__(self, effect_handle):
+    def __init__(self, effect_handle, init_handle=None):
         inkex.EffectExtension.__init__(self)
 
         self.curr_path_num = 0
         self.current_shape = None
         self.effect_handle = effect_handle
+        self.init_handle = init_handle
 
     def get_parent(self, node):
         parent = node.getparent()
@@ -67,8 +68,9 @@ class BaseFillExtension(inkex.EffectExtension):
         ]
         self.add_path_node(Path(*marker).d(), f"fill:{color};stroke:none", label)
 
-
     def effect(self):
+        if self.init_handle:
+            self.init_handle()
         if self.svg.selected:
             for i, shape in self.svg.selected.items():
                 self.curr_path_num = i

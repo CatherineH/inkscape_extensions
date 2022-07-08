@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import inkex
 from constraint import Problem
 
@@ -133,33 +135,8 @@ class JewelTexture(BaseFillExtension):
                 to_delete.append(cycle_i)
             if okay_to_merge:
                 for _prune_i in to_delete:
-                    print(f"deleting {self.cycle_edges[_prune_i]}")
                     del self.cycle_edges[_prune_i]
-                # now make sure the new_cycle is ordered correctly
-                _edges =  [self.edges[cycle_i] for cycle_i in new_cycle]
-                print(f"cycle to reorder: {_edges}, constructing graph")
-                _cycle_graphs = defaultdict(list)
-                for edge_i in new_cycle:
-                    for edge_j in new_cycle:
-                        if edge_i == edge_j:
-                            continue
-                        if set(self.edges[edge_i]).intersection(set(self.edges[edge_j])):
-                            if edge_j not in _cycle_graphs[edge_i]:
-                                _cycle_graphs[edge_i].append(edge_j)
-                            if edge_i not in _cycle_graphs[edge_j]:
-                                _cycle_graphs[edge_j].append(edge_i)
-                print(f"ordering graph: {_cycle_graphs}")
-                new_cycle_ordered = [new_cycle[0]]
-                while len(new_cycle_ordered) < len(new_cycle):
-                    print(len(new_cycle_ordered), len(new_cycle))
-                    _branches = _cycle_graphs[new_cycle_ordered[-1]]
-
-                    _branches = list(set(_branches) - set(new_cycle_ordered))
-                    new_cycle_ordered.append(_branches[0])
-                _edges = [self.edges[cycle_i] for cycle_i in new_cycle_ordered]
-
-                print(f"adding new cycle {new_cycle_ordered} {_edges}")
-                self.cycle_edges.append(new_cycle_ordered)
+                self.cycle_edges.append(new_cycle)
         if not self.cycle_edges:
             for i, _location in enumerate(self.locations):
                 self.add_marker(_location, label=f"location{i}")
@@ -320,21 +297,28 @@ class JewelTexture(BaseFillExtension):
 
         for _cycle in self.cycle_edges:
             _path = []
-
-            for _cycle_index in _cycle:
-                _edge = self.edges[_cycle_index]
-                _path.append(Line(start=self.locations[_edge[0]],end=self.locations[_edge[1]]))
-            for i in range(len(_path)):
-                # if the path needs to be reversed, reverse it
-                next_i = (i+1) % len(_path)
-                if abs(_path[i].end - _path[next_i].start) > self.spacing/8.0:
-                    continue
-                if abs(_path[i].end - _path[next_i].end) > self.spacing / 8.0:
-                    _path[next_i] = Line(end=_path[next_i].start, start=_path[next_i].end)
-                    continue
-                if abs(_path[i].start - _path[next_i].start) > self.spacing / 8.0:
-                    _path[i]  = Line(end=_path[i].start, start=_path[i].end)
-
+            cycle_left = deepcopy([self.edges[_edge_index] for _edge_index in _cycle])
+            cycle_edges = [self.edges[_edge_index] for _edge_index in _cycle]
+            curr_edge = None
+            print(f"{cycle_left=}")
+            last_loc = None
+            while cycle_left:
+                if not curr_edge:
+                    curr_edge = cycle_left.pop()
+                for i, _edge_test in enumerate(cycle_left):
+                    if _edge_test[0] == curr_edge[1]:
+                        curr_edge = cycle_left.pop(i)
+                        break
+                    elif _edge_test[1] == curr_edge[1]:
+                        curr_edge = cycle_left.pop(i)
+                        curr_edge = (curr_edge[1], curr_edge[0])
+                        break
+                else:
+                    raise ValueError(f"got stuck on {curr_edge=} {cycle_left=} {cycle_edges=}")
+                if last_loc:
+                    assert last_loc == curr_edge[0]
+                last_loc = curr_edge[1]
+                _path.append(Line(start=self.locations[curr_edge[0]], end=self.locations[curr_edge[1]]))
             self.paths.append(Path(*_path))
 
     def build_paths(self):
@@ -407,19 +391,18 @@ class JewelTexture(BaseFillExtension):
         color_paths = defaultdict(list)
         for i, cycle in enumerate(self.cycle_edges):
             _color = inkex.Color(colors[self.solution[i]])
-            output = Path(*self.paths[i])
-            self.add_path_node(output.d(), style=f"fill:{_color}", id=f"shapes{i}")
+            #output = Path(*self.paths[i])
+            #self.add_path_node(output.d(), style=f"fill:{_color}", id=f"shapes{i}")
 
             color_paths[self.solution[i]] += self.paths[i]
 
-        """
         for color_i in color_paths:
 
             _color = inkex.Color(colors[color_i])
             output = Path(*color_paths[color_i])
             print(color_i, len(output))
             self.add_path_node(output.d(), style=f"fill:{_color}", id=f"shapes{color_i}")
-        """
+
 
 if __name__ == "__main__":
     JewelTexture().run()

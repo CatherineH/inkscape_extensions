@@ -3,7 +3,6 @@
 	<_name>Add Markers</_name>
 	<id>com.catherineh.filter.add_markers</id>
 	<dependency type="executable" location="extensions">add_markers.py</dependency>
-	<dependency type="executable" location="extensions">inkex.py</dependency>
 	<effect>
 		<object-type>all</object-type>
 		<effects-menu>

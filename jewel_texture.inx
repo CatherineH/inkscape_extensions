@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
-	<_name>Hitomezashi Fill</_name>
-	<id>com.catherineh.filter.hitomezashi_fill</id>
+	<_name>Jewel Texture</_name>
+	<id>com.catherineh.filter.jewel_texture</id>
 	<dependency type="executable" location="extensions">jewel_texture.py</dependency>
-	<dependency type="executable" location="extensions">inkex.py</dependency>
 	<effect>
 		<object-type>all</object-type>
 		<effects-menu>

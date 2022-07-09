@@ -43,7 +43,6 @@ class GradientToPath(BaseFillExtension):
             for stop in node.stops:
                 _style = inkex.Style({"stop-color": inkex.Color(stop.attrib.get("stop-color")), "stop-opacity": float(stop.attrib.get("stop-opacity", 1.0))})
                 self._gradients[_id].add(inkex.Stop().update(offset=stop.attrib.get("offset", "0"), style=_style))
-            assert self._gradients[_id].get("x1") == node.get("x1")
         elif node.tag.find("style") >= 0:
             for _stylesheet in node.stylesheet():
                 for elem in self.svg.xpath(_stylesheet.to_xpath()):

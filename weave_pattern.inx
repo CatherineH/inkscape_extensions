@@ -12,6 +12,6 @@
 	<script>
 		<command reldir="extensions" interpreter="python">weave_pattern.py</command>
 	</script>
-	<param name="length" type="float" default="3" gui-text="length of segments" />
-	<param name="thickness" type="float" default="0.5" gui-text="thickness of the weave" />
-</inkscape-extension>
+	<param name="length" type="float" default="3" gui-text="length of segments">3</param>
+	<param name="thickness" type="float" default="0.5" gui-text="thickness of the weave" >0.5</param>
+	</inkscape-extension>

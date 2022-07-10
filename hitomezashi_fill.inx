@@ -12,9 +12,9 @@
 	<script>
 		<command reldir="extensions" interpreter="python">hitomezashi_fill.py</command>
 	</script>
-	<param name="length" type="float" default="1" gui-text="length of each stitch" />
-	<param name="weight_x" type="float" default="0.5" gui-text="probability that the x offset is even (default 0.5)" />
-	<param name="weight_y" type="float" default="0.5" gui-text="probability that the y offset is even (default 0.5)" />
+	<param name="length" type="float" default="1" gui-text="length of each stitch">1</param>
+	<param name="weight_x" type="float" default="0.5" gui-text="probability that the x offset is even (default 0.5)">0.5</param>
+	<param name="weight_y" type="float" default="0.5" gui-text="probability that the y offset is even (default 0.5)" >0.5</param>
 	<param name="gradient" type="boolean" default="false" gui-text="if set, the probability that the x/y offset is even is set by the relative position in the bounding box" />
 	<param name="fill" type="boolean" default="false" gui-text="fill every other shape in the stitch pattern (can be very slow)" />
 </inkscape-extension>

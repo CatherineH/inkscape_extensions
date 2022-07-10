@@ -12,7 +12,7 @@
 	<script>
 		<command reldir="extensions" interpreter="python">add_markers.py</command>
 	</script>
-	<param name="width" type="float" default="2" gui-text="the marker width" />
-	<param name="length" type="float" default="10" gui-text="the marker length" />
+	<param name="width" type="float" default="2" gui-text="the marker width">2</param>
+	<param name="length" type="float" default="10" gui-text="the marker length">10</param>
 
 </inkscape-extension>

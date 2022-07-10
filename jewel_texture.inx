@@ -12,8 +12,8 @@
 	<script>
 		<command reldir="extensions" interpreter="python">jewel_texture.py</command>
 	</script>
-	<param name="maximum" type="float" default="30" gui-text="The maximum facet length" />
-	<param name="minimum" type="float" default="10" gui-text="The minimum facet length" />
-	<param name="colors" type="input" default="4" gui-text="The number of colors - may not find a solution if the number is under three" />
+	<param name="maximum" type="float" default="30" gui-text="The maximum facet length">30</param>
+	<param name="minimum" type="float" default="10" gui-text="The minimum facet length">10</param>
+	<param name="colors" type="input" default="4" gui-text="The number of colors - may not find a solution if the number is under three">4</param>
 
 </inkscape-extension>

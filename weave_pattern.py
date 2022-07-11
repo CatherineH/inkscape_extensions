@@ -1,7 +1,6 @@
 import inkex
 
-from common_utils import BaseFillExtension
-from inspect import getfile
+from common_utils import BaseFillExtension, append_verify
 
 
 class WeaveFill(BaseFillExtension):
@@ -24,6 +23,7 @@ class WeaveFill(BaseFillExtension):
         last_vert = False
         length = self.options.length
         thickness = self.options.thickness
+        assert thickness, f"Thickness cannot be 0!"
         # horizontal lines
         x = bbox.left - length / 2.0
         print(f"length {length} thickness {thickness} bbox {bbox}")
@@ -39,11 +39,13 @@ class WeaveFill(BaseFillExtension):
             assert y < bbox.bottom
             while y < bbox.bottom:
                 path = inkex.Path()
-                path.append(inkex.paths.Move(x, y - thickness))
-                path.append(inkex.paths.Line(x + length - 2 * thickness, y - thickness))
-                path.append(inkex.paths.Line(x + length - 2 * thickness, y))
-                path.append(inkex.paths.Line(x, y))
-                path.append(inkex.paths.ZoneClose())
+                append_verify(path, inkex.paths.Move(x, y - thickness))
+                append_verify(
+                    path, inkex.paths.Line(x + length - 2 * thickness, y - thickness)
+                )
+                append_verify(path, inkex.paths.Line(x + length - 2 * thickness, y))
+                append_verify(path, inkex.paths.Line(x, y))
+                append_verify(path, inkex.paths.ZoneClose())
                 self.all_paths.append(path)
                 y += length
             x += length / 2.0

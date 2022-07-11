@@ -13,11 +13,22 @@ from scipy.sparse.csgraph import minimum_spanning_tree
 from collections import defaultdict
 from math import atan
 import subprocess
+from typing import List
 from functools import lru_cache
 from os.path import dirname, abspath, join
 
 FOLDERNAME = join(dirname(abspath(__file__)), "output")
 TOLERANCE = 0.2
+
+
+def append_verify(
+    path: List[inkex.paths.PathCommand], in_segment: inkex.paths.PathCommand
+):
+    path.append(in_segment)
+    for i, path_segment in enumerate(path.to_svgpathtools()):
+        assert (
+            path_segment.start != path_segment.end
+        ), f"degenerate path was added! {path_segment=}"
 
 
 class BaseFillExtension(inkex.EffectExtension):
@@ -76,13 +87,6 @@ class BaseFillExtension(inkex.EffectExtension):
                 self.curr_path_num = i
                 self.current_shape = shape
                 self.effect_handle(shape)
-
-
-def bounds_rect(pv):
-    from pylivarot import py2geom
-
-    bbox = pv.boundsExact()
-    return py2geom.Rect(bbox[py2geom.Dim2.X], bbox[py2geom.Dim2.Y])
 
 
 def transform_path_vector(pv, affine_t):
@@ -202,7 +206,8 @@ def make_stack_tree(lines, debug=False):
         # if any of the points in path2 is inside path1, the line must be inside
         segments_inside = []
         for segment in path2:
-            intersections = intersect_over_all(segment, path1)
+            print(f"lengths of paths to intersection {len(segment)=} {len(path1)=}")
+            intersections = intersect_over_all(segment, path1, exit_early=True)
             if len(intersections) > 0:
                 segments_inside.append(1)
             else:
@@ -272,11 +277,13 @@ def stack_lines(lines):
     return combined_lines, labels
 
 
-def intersect_over_all(line, path):
+def intersect_over_all(line, path, exit_early=False):
     all_intersections = []
     for i, segment in enumerate(path):
         try:
             current_intersections = line.intersect(segment)
+            if current_intersections and exit_early:
+                return current_intersections
             all_intersections += [(t1, t2, i) for (t1, t2) in current_intersections]
         except AssertionError as e:
             # TODO: figure out whether the line being identical counts as an intersection
@@ -406,4 +413,7 @@ def get_clockwise(last_point, curr_point, branches, counter=False):
         (limit_atan(unit.imag, unit.real) - angle_root) % 2 * 3.14159 for unit in units
     ]
     compare_func = min if counter else max
-    return angles.index(compare_func(angles)), branches[angles.index(compare_func(angles))]
+    return (
+        angles.index(compare_func(angles)),
+        branches[angles.index(compare_func(angles))],
+    )

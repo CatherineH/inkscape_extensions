@@ -112,9 +112,10 @@ class TestHitomezashi(TestCase):
 
 
 if __name__ == "__main__":
-    #print("test_basic")
+    print("test_basic")
     #TestHitomezashi().test_basic()
-    #print("test_heart")
-    #TestHitomezashi().test_heart()
-    TestHitomezashi().test_large_gradient()
+    print("test_heart")
+    TestHitomezashi().test_heart()
+    print("test_large_gradient")
+    #TestHitomezashi().test_large_gradient()
     #TestHitomezashi().test_large()

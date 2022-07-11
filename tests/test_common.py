@@ -1,17 +1,20 @@
 import sys
 from os.path import dirname, abspath, join
+FOLDERNAME = dirname(abspath(__file__))
 
-sys.path.append(dirname(dirname(abspath(__file__))))
+sys.path.append(dirname(FOLDERNAME))
 
 from pickle import load
 from common_utils import make_stack_tree, stack_lines
 import svgwrite
 
 
-def test_stack_tree():
-    lines = load(open("data/test_lines.pickle", "rb"))
 
-    dwg = svgwrite.Drawing('../output/test_stack_tree.svg', profile='full')
+def test_stack_tree():
+
+    lines = load(open(join(FOLDERNAME, "data/test_lines.pickle"), "rb"))
+
+    dwg = svgwrite.Drawing(join(FOLDERNAME, '../output/test_stack_tree.svg'), profile='full')
     for i, line in enumerate(lines):
         dwg.add(dwg.path(d=line.d(), stroke=svgwrite.rgb(10, 10, 16, '%'), id=f"path-{i}"))
     dwg.save()
@@ -34,9 +37,9 @@ def test_stack_tree():
 
 
 def test_stack_tree_edge_pieces():
-    lines = load(open("data/test_lines2.pickle", "rb"))
+    lines = load(open(join(FOLDERNAME, "data/test_lines2.pickle"), "rb"))
 
-    dwg = svgwrite.Drawing('../output/test_stack_tree2.svg', profile='full')
+    dwg = svgwrite.Drawing(join(FOLDERNAME, '../output/test_stack_tree2.svg'), profile='full')
     for i, line in enumerate(lines):
         dwg.add(dwg.path(d=line.d(), stroke=svgwrite.rgb(10, 10, 16, '%'), id=f"path-{i}"))
     dwg.save()
@@ -52,8 +55,8 @@ def test_stack_tree_edge_pieces():
 
 
 def test_stack_lines():
-    lines = load(open("data/test_lines.pickle", "rb"))
-    dwg = svgwrite.Drawing('../output/test_stack_lines.svg', profile='full')
+    lines = load(open(join(FOLDERNAME, "data/test_lines.pickle"), "rb"))
+    dwg = svgwrite.Drawing(join(FOLDERNAME, '../output/test_stack_lines.svg'), profile='full')
     for i, line in enumerate(lines):
         dwg.add(dwg.path(d=line.d(), stroke=svgwrite.rgb(0, 0, 0, '%'), fill=svgwrite.rgb(255, 0, 0, '%'), id=f"path-before-{i}"))
     lines_after, labels = stack_lines(lines)

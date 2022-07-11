@@ -3,11 +3,7 @@ from copy import deepcopy
 import inkex
 from constraint import Problem
 
-from common_utils import (
-    pattern_vector_to_d,
-    BaseFillExtension,
-    get_clockwise
-)
+from common_utils import pattern_vector_to_d, BaseFillExtension, get_clockwise
 from math import sin, cos
 
 from collections import defaultdict
@@ -25,7 +21,9 @@ class JewelTexture(BaseFillExtension):
         self.cycle_edges = []
 
     def add_arguments(self, pars):
-        pars.add_argument("--maximum", type=float, default=30, help="The maximum facet length")
+        pars.add_argument(
+            "--maximum", type=float, default=30, help="The maximum facet length"
+        )
         pars.add_argument(
             "--minimum",
             type=float,
@@ -35,8 +33,11 @@ class JewelTexture(BaseFillExtension):
 
     def plot_graph(self):
         for i, _edge in enumerate(self.edges):
-            self.add_path_node(Path(_edge[2]).d(), f"stroke:red;stroke-width:2;fill:none",
-                               f"edge_{i}_{_edge[0]}_{_edge[1]}")
+            self.add_path_node(
+                Path(_edge[2]).d(),
+                f"stroke:red;stroke-width:2;fill:none",
+                f"edge_{i}_{_edge[0]}_{_edge[1]}",
+            )
         return
 
     def generate_permutated_graph(self):
@@ -44,32 +45,35 @@ class JewelTexture(BaseFillExtension):
         _x = self.bbox.left
         while _x <= self.bbox.right:
             _x += self.spacing
-            _y = self.bbox.top + self.spacing*even/2.0
+            _y = self.bbox.top + self.spacing * even / 2.0
             while _y <= self.bbox.bottom:
                 _y += self.spacing
-                self.locations.append(_x + _y*1j)
+                self.locations.append(_x + _y * 1j)
             even = not even
         assert self.locations
 
         def chain_cycle(a, b, c):
             if not b or not c:
                 return
-            _edge1 = [j for j, _edge in enumerate(self.edges) if
-                      _edge in [(a, b), (b, a)]]
+            _edge1 = [
+                j for j, _edge in enumerate(self.edges) if _edge in [(a, b), (b, a)]
+            ]
             if _edge1:
                 _edge1 = _edge1.pop()
             else:
                 _edge1 = len(self.edges)
                 self.edges.append((a, b))
-            _edge2 = [j for j, _edge in enumerate(self.edges) if
-                      _edge in [(b, c), (c, b)]]
+            _edge2 = [
+                j for j, _edge in enumerate(self.edges) if _edge in [(b, c), (c, b)]
+            ]
             if _edge2:
                 _edge2 = _edge2.pop()
             else:
                 _edge2 = len(self.edges)
                 self.edges.append((b, c))
-            _edge3 = [j for j, _edge in enumerate(self.edges) if
-                      _edge in [(c, a), (a, c)]]
+            _edge3 = [
+                j for j, _edge in enumerate(self.edges) if _edge in [(c, a), (a, c)]
+            ]
             if _edge3:
                 _edge3 = _edge3.pop()
             else:
@@ -78,25 +82,39 @@ class JewelTexture(BaseFillExtension):
             self.cycle_edges.append((_edge1, _edge2, _edge3))
 
         for i, _location in enumerate(self.locations):
-            _left = self.locations[i]-self.spacing+self.spacing*1j/2
-            _bottom_left = self.locations[i]+self.spacing*1j
-            _bottom_right = self.locations[i]+self.spacing +self.spacing*1j/2
-            _left_index = [j for j in range(len(self.locations)) if abs(self.locations[j]-_left) < self.spacing/8.0]
+            _left = self.locations[i] - self.spacing + self.spacing * 1j / 2
+            _bottom_left = self.locations[i] + self.spacing * 1j
+            _bottom_right = self.locations[i] + self.spacing + self.spacing * 1j / 2
+            _left_index = [
+                j
+                for j in range(len(self.locations))
+                if abs(self.locations[j] - _left) < self.spacing / 8.0
+            ]
             if _left_index:
                 _left_index = _left_index.pop()
-            _bottom_left_index = \
-            [j for j in range(len(self.locations)) if abs(self.locations[j] - _bottom_left) < self.spacing / 8.0]
+            _bottom_left_index = [
+                j
+                for j in range(len(self.locations))
+                if abs(self.locations[j] - _bottom_left) < self.spacing / 8.0
+            ]
             if _bottom_left_index:
                 _bottom_left_index = _bottom_left_index.pop()
-            _bottom_right_index = \
-                [j for j in range(len(self.locations)) if abs(self.locations[j] - _bottom_right) < self.spacing / 8.0]
+            _bottom_right_index = [
+                j
+                for j in range(len(self.locations))
+                if abs(self.locations[j] - _bottom_right) < self.spacing / 8.0
+            ]
             if _bottom_right_index:
                 _bottom_right_index = _bottom_right_index.pop()
             chain_cycle(i, _left_index, _bottom_left_index)
             chain_cycle(i, _bottom_right_index, _bottom_left_index)
         for i in range(len(self.locations)):
-            _angle = 3.14159*random.random()
-            self.locations[i] += self.options.minimum*random.random()*(sin(_angle) + cos(_angle)*1j)
+            _angle = 3.14159 * random.random()
+            self.locations[i] += (
+                self.options.minimum
+                * random.random()
+                * (sin(_angle) + cos(_angle) * 1j)
+            )
         # see which of the edges intersect now
         to_prune = []
         for i, _edge in enumerate(self.edges):
@@ -107,8 +125,13 @@ class JewelTexture(BaseFillExtension):
                     continue
                 if j in to_prune:
                     continue
-                line1 = Line(start=self.locations[_edge[0]], end=self.locations[_edge[1]])
-                line2 = Line(start=self.locations[_edge_compare[0]], end=self.locations[_edge_compare[1]])
+                line1 = Line(
+                    start=self.locations[_edge[0]], end=self.locations[_edge[1]]
+                )
+                line2 = Line(
+                    start=self.locations[_edge_compare[0]],
+                    end=self.locations[_edge_compare[1]],
+                )
                 if line1.intersect(line2):
                     to_prune.append(i)
                     to_prune.append(j)
@@ -116,7 +139,9 @@ class JewelTexture(BaseFillExtension):
         print(to_prune)
         # for each of the edges to prune, merge the edge with its friend
         for i in to_prune:
-            cycle_edges = [cycle_i for cycle_i, _edge in enumerate(self.cycle_edges) if i in _edge]
+            cycle_edges = [
+                cycle_i for cycle_i, _edge in enumerate(self.cycle_edges) if i in _edge
+            ]
             if len(cycle_edges) != 2:
                 continue
             cycle_edges.sort(reverse=True)
@@ -157,22 +182,30 @@ class JewelTexture(BaseFillExtension):
         while current_retry < MAX_RETRIES:
             curr_i += 1
             if curr_i > 50000:
-                inkex.utils.errormsg(f"low number of points, {self.bbox.width= }, {self.bbox.height= } {self.spacing= }")
+                inkex.utils.errormsg(
+                    f"low number of points, {self.bbox.width= }, {self.bbox.height= } {self.spacing= }"
+                )
                 break
             _x = random.random() * self.bbox.width + self.bbox.left
             _y = random.random() * self.bbox.height + self.bbox.top
             _test_location = _x + _y * 1j
             # first confirm that the _x, _y is inside
-            is_inside = inkex.boolean_operations.segment_is_inside(container_path, _test_location, tolerance=0.005)
+            is_inside = inkex.boolean_operations.segment_is_inside(
+                container_path, _test_location, tolerance=0.005
+            )
             if not is_inside:
-                inkex.boolean_operations.segment_is_inside(container_path, _test_location, debug=True, tolerance=0.005)
+                inkex.boolean_operations.segment_is_inside(
+                    container_path, _test_location, debug=True, tolerance=0.005
+                )
                 # raise ValueError(f"skipping, wasn't inside {_x=} {_y=}, {container_path=}")
                 continue
             too_close = False
             for _location in self.locations:
 
                 distance = abs(_location - _test_location)
-                if distance < self.spacing:  # the current circle is too close to an existing location
+                if (
+                    distance < self.spacing
+                ):  # the current circle is too close to an existing location
                     current_retry += 1
                     too_close = True
                     break
@@ -202,7 +235,9 @@ class JewelTexture(BaseFillExtension):
             for j, _loc_j in enumerate(self.locations):
                 if i == j:
                     continue
-                self.untrimmed_edges.append((i, j, Line(start=self.locations[i], end=self.locations[j])))
+                self.untrimmed_edges.append(
+                    (i, j, Line(start=self.locations[i], end=self.locations[j]))
+                )
         start_i = 0
         self.untrimmed_edges.sort(key=lambda x: x[2].length())
         self.edges = []
@@ -257,22 +292,34 @@ class JewelTexture(BaseFillExtension):
                 pieces = [last_point, curr_point]
                 closed = False
                 while not closed:
-                    branches = [_branch for _branch in self.graph[curr_point] if _branch not in [last_point, curr_point]]
+                    branches = [
+                        _branch
+                        for _branch in self.graph[curr_point]
+                        if _branch not in [last_point, curr_point]
+                    ]
                     if not branches:
-                        print(f"there were no branches! {pieces=} {self.graph[curr_point]=}")
+                        print(
+                            f"there were no branches! {pieces=} {self.graph[curr_point]=}"
+                        )
                         break
                     branch_locations = [self.locations[_branch] for _branch in branches]
-                    branch_index, clockwise = get_clockwise(last_point, curr_point, branch_locations, counterclockwise)
+                    branch_index, clockwise = get_clockwise(
+                        last_point, curr_point, branch_locations, counterclockwise
+                    )
                     next_branch = branches[branch_index]
                     if next_branch == pieces[-1]:
-                        print(f"got a weird branch {last_point=} {curr_point=} {next_branch=} {branches=}")
+                        print(
+                            f"got a weird branch {last_point=} {curr_point=} {next_branch=} {branches=}"
+                        )
 
                     pieces.append(branches[branch_index])
                     if len(pieces) >= 3 and next_branch == start_point:
                         self.cycles.append(pieces)
                         break
                     if len(pieces) > 4:
-                        print(f"more than 4 pieces and failed to get back to start! {pieces=}")
+                        print(
+                            f"more than 4 pieces and failed to get back to start! {pieces=}"
+                        )
                         break
                     last_point = curr_point
                     curr_point = next_branch
@@ -314,11 +361,18 @@ class JewelTexture(BaseFillExtension):
                         curr_edge = (curr_edge[1], curr_edge[0])
                         break
                 else:
-                    raise ValueError(f"got stuck on {curr_edge=} {cycle_left=} {cycle_edges=}")
+                    raise ValueError(
+                        f"got stuck on {curr_edge=} {cycle_left=} {cycle_edges=}"
+                    )
                 if last_loc:
                     assert last_loc == curr_edge[0]
                 last_loc = curr_edge[1]
-                _path.append(Line(start=self.locations[curr_edge[0]], end=self.locations[curr_edge[1]]))
+                _path.append(
+                    Line(
+                        start=self.locations[curr_edge[0]],
+                        end=self.locations[curr_edge[1]],
+                    )
+                )
             self.paths.append(Path(*_path))
 
     def build_paths(self):
@@ -331,18 +385,20 @@ class JewelTexture(BaseFillExtension):
             for j in range(len(_cycle) - 1):
                 found_edge = False
                 for i, _edge in enumerate(self.edges):
-                    if _cycle[j] == _edge[0] and _cycle[j+1] == _edge[1]:
+                    if _cycle[j] == _edge[0] and _cycle[j + 1] == _edge[1]:
                         _path.append(_edge[2])
                         _cycle_edge.append(i)
                         found_edge = True
                         break
-                    elif _cycle[j] == _edge[1] and _cycle[j+1] == _edge[0]:
+                    elif _cycle[j] == _edge[1] and _cycle[j + 1] == _edge[0]:
                         _path.append(_edge[2].reversed())
                         _cycle_edge.append(i)
                         found_edge = True
                         break
                 if not found_edge:
-                    raise ValueError(f"could not identify edge corresponding to {_cycle[j:j+2]} {_cycle=}")
+                    raise ValueError(
+                        f"could not identify edge corresponding to {_cycle[j:j+2]} {_cycle=}"
+                    )
             self.paths.append(_path)
             self.cycle_edges.append(_cycle_edge)
 
@@ -361,9 +417,9 @@ class JewelTexture(BaseFillExtension):
         self.solution = problem.getSolution()
 
     def jewel_texture(self, shape):
-        #print(bbox, container_path.bbox(), container_path.d())
-        #c_bbox = container_path.bbox()
-        #bbox = inkex.transforms.BoundingBox(x=(c_bbox[0], c_bbox[1]), y=(c_bbox[2], c_bbox[3]))
+        # print(bbox, container_path.bbox(), container_path.d())
+        # c_bbox = container_path.bbox()
+        # bbox = inkex.transforms.BoundingBox(x=(c_bbox[0], c_bbox[1]), y=(c_bbox[2], c_bbox[3]))
         self.spacing = float(self.options.minimum)
         self.options.length = self.spacing
         self.bbox = shape.bounding_box()
@@ -387,12 +443,12 @@ class JewelTexture(BaseFillExtension):
         if not self.solution:
             self.plot_graph()
             return
-        colors = {0: "black", 1:"red", 2:"pink", 3:"maroon"}
+        colors = {0: "black", 1: "red", 2: "pink", 3: "maroon"}
         color_paths = defaultdict(list)
         for i, cycle in enumerate(self.cycle_edges):
             _color = inkex.Color(colors[self.solution[i]])
-            #output = Path(*self.paths[i])
-            #self.add_path_node(output.d(), style=f"fill:{_color}", id=f"shapes{i}")
+            # output = Path(*self.paths[i])
+            # self.add_path_node(output.d(), style=f"fill:{_color}", id=f"shapes{i}")
 
             color_paths[self.solution[i]] += self.paths[i]
 
@@ -401,10 +457,10 @@ class JewelTexture(BaseFillExtension):
             _color = inkex.Color(colors[color_i])
             output = Path(*color_paths[color_i])
             print(color_i, len(output))
-            self.add_path_node(output.d(), style=f"fill:{_color}", id=f"shapes{color_i}")
+            self.add_path_node(
+                output.d(), style=f"fill:{_color}", id=f"shapes{color_i}"
+            )
 
 
 if __name__ == "__main__":
     JewelTexture().run()
-
-

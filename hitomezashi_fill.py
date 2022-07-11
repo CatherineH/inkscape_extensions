@@ -294,6 +294,10 @@ class HitomezashiFill(BaseFillExtension):
     def chain_graph(self):
         # self.plot_graph(connected=False)
         self.simplify_graph()
+        if len(self.graph.keys()) > 500:
+            msg = f"there are two many edges to fill. Consider using a shorter length piece or not filling the shape."
+            inkex.utils.errormsg(msg)
+            raise ValueError(msg)
         # self.plot_graph(color="blue", label="simplified_graph", connected=False)
         # debug_screen(self, "test_graph_simplify")
         self.audit_graph()
@@ -588,11 +592,12 @@ class HitomezashiFill(BaseFillExtension):
             labels = [i for i in range(len(lines))]
         else:
             _ = self.chop_shape(lines)
+
             lines = self.chain_graph()
             print(f"graph {self.graph}")
             # next: we need to stack and cut the paths out of each other
             dump(lines, open("tests/data/lines.pickle", "wb"))
-
+            print(f"number of lines to stack {len(lines)}")
             combined_lines, labels = stack_lines(lines)
             # combined_lines = lines
             color_fills = self.color_pattern(combined_lines)

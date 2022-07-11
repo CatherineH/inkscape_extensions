@@ -1,19 +1,6 @@
-from copy import deepcopy
-
-
 import inkex
 
-from common_utils import (
-    pattern_vector_to_d,
-    BaseFillExtension,
-    get_clockwise
-)
-
-from math import sin, cos
-
-from collections import defaultdict
-import random
-from svgpathtools.path import Path, Line
+from common_utils import append_verify, BaseFillExtension
 
 
 class AddMarkers(BaseFillExtension):
@@ -44,21 +31,26 @@ class AddMarkers(BaseFillExtension):
                 bottom = _bbox.bottom
 
         if not left or not right or not top or not bottom:
-            raise ValueError(f"invalid overall bounding box on {self.svg.selected.items()}")
+            raise ValueError(
+                f"invalid overall bounding box on {self.svg.selected.items()}"
+            )
         self.bbox = inkex.transforms.BoundingBox(x=(left, right), y=(top, bottom))
-        self.add_cross(x=self.bbox.left + self.bbox.width/2, y=self.bbox.top + self.bbox.height/2)
+        self.add_cross(
+            x=self.bbox.left + self.bbox.width / 2,
+            y=self.bbox.top + self.bbox.height / 2,
+        )
         self.add_cross(x=self.bbox.left, y=self.bbox.top + self.bbox.height / 2)
         self.add_cross(x=self.bbox.right, y=self.bbox.top + self.bbox.height / 2)
         self.add_cross(x=self.bbox.left + self.bbox.width / 2, y=self.bbox.top)
         self.add_cross(x=self.bbox.left + self.bbox.width / 2, y=self.bbox.bottom)
 
     def add_marker_path(self, segment):
-        self.marker_path.append(segment)
-        for i,path in enumerate(self.marker_path.to_svgpathtools()):
-            assert path.start != path.end, f"degenerate path was added! {path=}"
+        append_verify(self.marker_path, segment)
 
     def add_cross(self, x, y):
-        self.add_marker_path(inkex.paths.Move(x=x+self.options.width/2, y=y+self.options.width/2))
+        self.add_marker_path(
+            inkex.paths.Move(x=x + self.options.width / 2, y=y + self.options.width / 2)
+        )
         self.add_marker_path(inkex.paths.line(dx=self.options.length, dy=0))
         self.add_marker_path(inkex.paths.line(dx=0, dy=-self.options.width))
         self.add_marker_path(inkex.paths.line(dx=-self.options.length, dy=0))
@@ -71,10 +63,12 @@ class AddMarkers(BaseFillExtension):
         self.add_marker_path(inkex.paths.line(dx=0, dy=self.options.length))
         self.add_marker_path(inkex.paths.line(dx=self.options.width, dy=0))
         self.add_marker_path(inkex.paths.line(dx=0, dy=-self.options.length))
-        #self.add_marker_path(inkex.paths.Line(x=x+self.options.width/2, y=y+self.options.width/2))
+        # self.add_marker_path(inkex.paths.Line(x=x+self.options.width/2, y=y+self.options.width/2))
 
     def add_arguments(self, pars):
-        pars.add_argument("--width", type=float, default=2, help="The width of the marker")
+        pars.add_argument(
+            "--width", type=float, default=2, help="The width of the marker"
+        )
         pars.add_argument(
             "--length",
             type=float,

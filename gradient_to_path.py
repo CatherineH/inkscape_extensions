@@ -28,21 +28,42 @@ class GradientToPath(BaseFillExtension):
 
     def add_arguments(self, pars):
         pars.add_argument("--debug", type=str, default="false", help="debug shapes")
-        pars.add_argument("--circles", type=str, default="false", help="use circles instead of lines")
-        pars.add_argument("--spacing", type=float, default=1, help="spacing between circles")
+        pars.add_argument(
+            "--circles", type=str, default="false", help="use circles instead of lines"
+        )
+        pars.add_argument(
+            "--spacing", type=float, default=1, help="spacing between circles"
+        )
 
     def get_all_gradients(self, node):
         if node.tag.find("Gradient") >= 0:
             _id = node.attrib.get("id")
             # TODO: find if there's some sort of auto parsing here
-            self._gradients[_id] = inkex.LinearGradient(attrib={"x1": node.get("x1", "0"), "y1": node.get("y1", "0"),
-                                                                "x2": node.get("x2", "1"), "y2": node.get("y2", "1"),
-                                                                "gradientUnits": node.get("gradientUnits", "objectBoundingBox")})
+            self._gradients[_id] = inkex.LinearGradient(
+                attrib={
+                    "x1": node.get("x1", "0"),
+                    "y1": node.get("y1", "0"),
+                    "x2": node.get("x2", "1"),
+                    "y2": node.get("y2", "1"),
+                    "gradientUnits": node.get("gradientUnits", "objectBoundingBox"),
+                }
+            )
             if node.get("gradientTransform"):
-                self._gradients[_id].gradientTransform = inkex.transforms.Transform(node.get("gradientTransform"))
+                self._gradients[_id].gradientTransform = inkex.transforms.Transform(
+                    node.get("gradientTransform")
+                )
             for stop in node.stops:
-                _style = inkex.Style({"stop-color": inkex.Color(stop.attrib.get("stop-color")), "stop-opacity": float(stop.attrib.get("stop-opacity", 1.0))})
-                self._gradients[_id].add(inkex.Stop().update(offset=stop.attrib.get("offset", "0"), style=_style))
+                _style = inkex.Style(
+                    {
+                        "stop-color": inkex.Color(stop.attrib.get("stop-color")),
+                        "stop-opacity": float(stop.attrib.get("stop-opacity", 1.0)),
+                    }
+                )
+                self._gradients[_id].add(
+                    inkex.Stop().update(
+                        offset=stop.attrib.get("offset", "0"), style=_style
+                    )
+                )
         elif node.tag.find("style") >= 0:
             for _stylesheet in node.stylesheet():
                 for elem in self.svg.xpath(_stylesheet.to_xpath()):
@@ -144,7 +165,7 @@ class GradientToPath(BaseFillExtension):
                 line_colors.append(self.stops_dict[start_offset])
         end_offset = None
         bin_size = None
-        for i in range(int(num_lines**0.5), 1, -1):
+        for i in range(int(num_lines ** 0.5), 1, -1):
             if num_lines % i == 0:
                 bin_size = i
                 break
@@ -179,53 +200,49 @@ class GradientToPath(BaseFillExtension):
         return line_colors
 
     def generate_lines(self, node):
-        container_pv = py2geom.parse_svg_path(self.container_path)
-        _affine = py2geom.Affine()
-        _affine *= py2geom.Rotate(_angle)
-        container_pv = transform_path_vector(container_pv, _affine)
-        container_bbox = bounds_rect(container_pv)
+        container_path = inkex.paths.Path(self.container_path)
+        container_bbox = container_path.bounding_box()
         num_lines = container_bbox.width() / self.spacing
 
         line_colors = self.random_interpolate(num_lines)
         path_builders = {
-            f"{line_color[0]}_{line_color[1]}": py2geom.PathBuilder()
+            f"{line_color[0]}_{line_color[1]}": inkex.paths.Path()
             for line_color in self.stops_dict.values()
         }
         for i in range(int(num_lines)):
             line_color = line_colors.pop(0)
             if line_color[1] == 0:  # don't bother with 0 opacity values
                 continue
-            path_builders[f"{line_color[0]}_{line_color[1]}"].moveTo(
-                py2geom.Point(
-                    (i - 0.5) * self.spacing + container_bbox.left(),
-                    container_bbox.top(),
+            path_builders[f"{line_color[0]}_{line_color[1]}"].append(
+                inkex.paths.Move(
+                    x=(i - 0.5) * self.spacing + container_bbox.left(),
+                    y=container_bbox.top(),
                 )
             )
-            path_builders[f"{line_color[0]}_{line_color[1]}"].lineTo(
-                py2geom.Point(
-                    (i - 0.5) * self.spacing + container_bbox.left(),
-                    container_bbox.bottom(),
+            path_builders[f"{line_color[0]}_{line_color[1]}"].append(
+                inkex.paths.Line(
+                    x=(i - 0.5) * self.spacing + container_bbox.left(),
+                    y=container_bbox.bottom(),
                 )
             )
-            path_builders[f"{line_color[0]}_{line_color[1]}"].lineTo(
-                py2geom.Point(
-                    (i + 0.5) * self.spacing + container_bbox.left(),
-                    container_bbox.bottom(),
+            path_builders[f"{line_color[0]}_{line_color[1]}"].append(
+                inkex.paths.Line(
+                    x=(i + 0.5) * self.spacing + container_bbox.left(),
+                    y=container_bbox.bottom(),
                 )
             )
-            path_builders[f"{line_color[0]}_{line_color[1]}"].lineTo(
-                py2geom.Point(
-                    (i + 0.5) * self.spacing + container_bbox.left(),
-                    container_bbox.top(),
+            path_builders[f"{line_color[0]}_{line_color[1]}"].append(
+                inkex.paths.Line(
+                    x=(i + 0.5) * self.spacing + container_bbox.left(),
+                    y=container_bbox.top(),
                 )
             )
-            path_builders[f"{line_color[0]}_{line_color[1]}"].lineTo(
-                py2geom.Point(
-                    (i - 0.5) * self.spacing + container_bbox.left(),
-                    container_bbox.top(),
+            path_builders[f"{line_color[0]}_{line_color[1]}"].append(
+                inkex.paths.Line(
+                    x=(i - 0.5) * self.spacing + container_bbox.left(),
+                    y=container_bbox.top(),
                 )
             )
-            path_builders[f"{line_color[0]}_{line_color[1]}"].closePath()
         if not path_builders:
             inkex.utils.errormsg("path_builders is empty")
             return
@@ -240,37 +257,24 @@ class GradientToPath(BaseFillExtension):
             path_builders[line_color].flush()
             all_gradient_path = path_builders[line_color].peek()
             # gradient_path = get_outline_offset(gradient_path, self.spacing/2.0)
-            result = py2geom.PathVector()
+            result = inkex.paths.Path()
             for gradient_path in all_gradient_path:
-                gradient_path_pv = py2geom.PathVector()
-                gradient_path_pv.push_back(gradient_path)
-                result_piece = sp_pathvector_boolop(
-                    gradient_path_pv,
-                    container_pv,
-                    bool_op.bool_op_inters,
-                    FillRule.fill_oddEven,
-                    FillRule.fill_oddEven,
-                    skip_conversion=True,
-                )
+                result_piece = gradient_path.intersection(container_path)
                 for result_piece_path in result_piece:
                     result.push_back(result_piece_path)
-            _affine = py2geom.Affine()
-            _affine *= py2geom.Rotate(-_angle)
-            result = transform_path_vector(result, _affine)
-            all_gradient_path = transform_path_vector(all_gradient_path, _affine)
             gradient_path_id = f"gradient-{line_color}"
             gradient_path_style = (
                 f"fill:none;stroke:{color};{stroke_opacity}stroke-width:{self.spacing}"
             )
             if self.options.debug == "true":
-                gradient_debug_path_d = py2geom.write_svg_path(all_gradient_path)
+                gradient_debug_path_d = str(result)
                 gradient_debug_node = inkex.elements.PathElement()
                 gradient_debug_node.set_path(gradient_debug_path_d)
                 gradient_debug_node.set("id", f"{gradient_path_id}-debug")
                 gradient_debug_node.set("style", gradient_path_style)
                 self.get_parent(node).insert(0, gradient_debug_node)
 
-            gradient_color_d = py2geom.write_svg_path(result)
+            gradient_color_d = str(result)
             gradient_node = inkex.elements.PathElement()
             gradient_node.set_path(gradient_color_d)
 
@@ -278,7 +282,7 @@ class GradientToPath(BaseFillExtension):
             gradient_node.set("id", gradient_path_id)
             self.get_parent(node).insert(0, gradient_node)
         if self.options.debug == "true":
-            container_path_d = py2geom.write_svg_path(container_pv)
+            container_path_d = str(container_path)
             container_node = inkex.elements.PathElement()
             container_node.set_path(container_path_d)
             container_node.set("id", "container_path")
@@ -292,7 +296,9 @@ class GradientToPath(BaseFillExtension):
         container_path = Path(pattern_vector_to_d(node))
         print(bbox, container_path.bbox(), container_path.d())
         c_bbox = container_path.bbox()
-        bbox = inkex.transforms.BoundingBox(x=(c_bbox[0], c_bbox[1]), y=(c_bbox[2], c_bbox[3]))
+        bbox = inkex.transforms.BoundingBox(
+            x=(c_bbox[0], c_bbox[1]), y=(c_bbox[2], c_bbox[3])
+        )
         MAX_RETRIES = 10
         current_retry = 0
         transf = inkex.transforms.Transform(node.get("transform", None))
@@ -308,7 +314,9 @@ class GradientToPath(BaseFillExtension):
             _x = random.random() * (bbox.right - bbox.left) + bbox.left
             _y = random.random() * (bbox.bottom - bbox.top) + bbox.top
             # first confirm that the _x, _y is inside
-            is_inside = inkex.boolean_operations.segment_is_inside(container_path, _x+_y*1j)
+            is_inside = inkex.boolean_operations.segment_is_inside(
+                container_path, _x + _y * 1j
+            )
             if not is_inside:
                 continue
             too_close = False
@@ -325,25 +333,32 @@ class GradientToPath(BaseFillExtension):
             if too_close:
                 continue
             current_retry = 0
-            _color = deepcopy(self.sample_color(bbox, inkex.transforms.Vector2d(_x, _y) , debug=self.options.debug == "true"))
+            _color = deepcopy(
+                self.sample_color(
+                    bbox,
+                    inkex.transforms.Vector2d(_x, _y),
+                    debug=self.options.debug == "true",
+                )
+            )
             circle_locations.append((_x, _y, _color))
             if self.options.debug == "true":
                 print(f"adding circle {_x} {_y} {_color}")
 
             _node = inkex.elements.Circle.new(
-                center=inkex.transforms.Vector2d(_x, _y), radius=self.spacing/2
+                center=inkex.transforms.Vector2d(_x, _y), radius=self.spacing / 2
             )
             if _color not in stops_used:
                 stops_used.append(_color)
             stop_i = stops_used.index(_color)
-            paths[stop_i] += " "+_node.get_path()
+            paths[stop_i] += " " + _node.get_path()
 
         for i, stop_i in enumerate(list(paths.keys())):
             _color = stops_used[stop_i]
             print(i, _color, paths[stop_i])
             _node = inkex.elements.PathElement()
             _node.set("d", paths[stop_i])
-            _node.set("style",
+            _node.set(
+                "style",
                 f"fill:none;stroke:{_color.get('stop-color')};stroke-opacity:{_color.get('stop-opacity', '1')};stroke-width:{self.spacing/2}",
             )
             if transf:
@@ -363,6 +378,7 @@ class GradientToPath(BaseFillExtension):
             return stops[0][1].style
         else:
             return stops[1][1].style
+
 
 if __name__ == "__main__":
     GradientToPath().run()

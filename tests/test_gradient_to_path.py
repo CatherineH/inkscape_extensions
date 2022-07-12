@@ -39,7 +39,14 @@ class TestGradientToPath(TestCase):
     def test_rainbow(self):
         target = "target"
         _file = "rainbow_saturated.svg"
-        args = [f"--id={target}", "--debug", "true", "--circles", "true", self.data_file(_file)]
+        args = [
+            f"--id={target}",
+            "--debug",
+            "true",
+            "--circles",
+            "true",
+            self.data_file(_file),
+        ]
         effect = self.effect_class()
         effect.run(args)
         effect.save(open("output/rainbow_saturated.svg", "wb"))
@@ -55,30 +62,61 @@ class TestGradientToPath(TestCase):
         effect = self.effect_class()
         target = "target"
         _file = "rainbow_saturated.svg"
-        args = [f"--id={target}", "--debug", "true", "--circles", "true", "--spacing", "50", self.data_file(_file)]
+        args = [
+            f"--id={target}",
+            "--debug",
+            "true",
+            "--circles",
+            "true",
+            "--spacing",
+            "50",
+            self.data_file(_file),
+        ]
         effect.run(args)
         bbox = inkex.transforms.BoundingBox(x=(0, 100), y=(0, 100))
-        red_color = effect.sample_color(bbox, inkex.transforms.Vector2d(0, 0), debug=True)
+        red_color = effect.sample_color(
+            bbox, inkex.transforms.Vector2d(0, 0), debug=True
+        )
         assert str(red_color) == "stop-color:red;stop-opacity:1.0"
-        blue_color = effect.sample_color(bbox, inkex.transforms.Vector2d(99.9, 0), debug=True)
+        blue_color = effect.sample_color(
+            bbox, inkex.transforms.Vector2d(99.9, 0), debug=True
+        )
         assert str(blue_color) == "stop-color:#ff00ff;stop-opacity:1.0"
 
     def test_gradient_sampling_user_space(self):
         effect = self.effect_class()
         target = "target"
         _file = "rainbow_saturated_user_space.svg"
-        args = [f"--id={target}", "--debug", "true", "--circles", "true", "--spacing", "50",self.data_file(_file)]
+        args = [
+            f"--id={target}",
+            "--debug",
+            "true",
+            "--circles",
+            "true",
+            "--spacing",
+            "50",
+            self.data_file(_file),
+        ]
         effect.run(args)
         bbox = inkex.transforms.BoundingBox(x=(0, 100), y=(0, 100))
         red_i = effect.sample_color(bbox, inkex.transforms.Vector2d(0, 0), debug=True)
         assert str(red_i) == "stop-color:red;stop-opacity:1.0"
-        blue_i = effect.sample_color(bbox, inkex.transforms.Vector2d(99.9, 0), debug=True)
+        blue_i = effect.sample_color(
+            bbox, inkex.transforms.Vector2d(99.9, 0), debug=True
+        )
         assert str(blue_i) == "stop-color:#ff00ff;stop-opacity:1.0"
 
     def test_rainbow_rotated(self):
         target = "target"
         _file = "rainbow_saturated_rotated.svg"
-        args = [f"--id={target}", "--debug", "true", "--circles", "true", self.data_file(_file)]
+        args = [
+            f"--id={target}",
+            "--debug",
+            "true",
+            "--circles",
+            "true",
+            self.data_file(_file),
+        ]
         effect = self.effect_class()
         effect.run(args)
         effect.save(open("output/rainbow_saturated_rotated.svg", "wb"))
@@ -93,7 +131,14 @@ class TestGradientToPath(TestCase):
     def test_rainbow_odd(self):
         target = "target"
         _file = "rainbow_saturated_odd.svg"
-        args = [f"--id={target}", "--debug", "true", "--circles", "true", self.data_file(_file)]
+        args = [
+            f"--id={target}",
+            "--debug",
+            "true",
+            "--circles",
+            "true",
+            self.data_file(_file),
+        ]
         effect = self.effect_class()
         effect.run(args)
         effect.save(open("output/rainbow_saturated_odd.svg", "wb"))

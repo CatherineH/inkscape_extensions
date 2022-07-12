@@ -5,6 +5,7 @@ sys.path.append(dirname(dirname(abspath(__file__))))
 
 from weave_pattern import WeaveFill
 from inkex.tester import TestCase
+
 FOLDERNAME = join(dirname(dirname(abspath(__file__))), "output")
 
 
@@ -38,4 +39,3 @@ class TestWeaveFill(TestCase):
         new_path = effect.svg.getElementById(f"segment0").path
         assert new_path
         assert old_path
-

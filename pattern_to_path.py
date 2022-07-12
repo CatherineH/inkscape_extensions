@@ -2,7 +2,6 @@
 import inkex
 
 from common_utils import (
-    bounds_rect,
     transform_path_vector,
     pattern_vector_to_d,
     get_fill_id,

@@ -104,18 +104,18 @@ class TestHitomezashi(TestCase):
                 previous_letter = path_piece.letter
             """
 
-        #new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
-        #print("calling debug screen now")
-        #debug_screen(effect, "test_large_gradient")
+        # new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
+        # print("calling debug screen now")
+        # debug_screen(effect, "test_large_gradient")
         effect.save(open(join(FOLDERNAME, f"test_large_gradient.svg"), "wb"))
-        #assert new_path
+        # assert new_path
 
 
 if __name__ == "__main__":
     print("test_basic")
-    #TestHitomezashi().test_basic()
+    # TestHitomezashi().test_basic()
     print("test_heart")
     TestHitomezashi().test_heart()
     print("test_large_gradient")
-    #TestHitomezashi().test_large_gradient()
-    #TestHitomezashi().test_large()
+    # TestHitomezashi().test_large_gradient()
+    # TestHitomezashi().test_large()

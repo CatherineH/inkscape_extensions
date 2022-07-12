@@ -3,13 +3,10 @@ import random
 from copy import deepcopy
 
 import inkex
-from math import atan2, sin, cos
 from collections import defaultdict
 from svgpathtools.path import Path
 
 from common_utils import (
-    bounds_rect,
-    transform_path_vector,
     pattern_vector_to_d,
     get_fill_id,
     BaseFillExtension,
@@ -202,7 +199,7 @@ class GradientToPath(BaseFillExtension):
     def generate_lines(self, node):
         container_path = inkex.paths.Path(self.container_path)
         container_bbox = container_path.bounding_box()
-        num_lines = container_bbox.width() / self.spacing
+        num_lines = container_bbox.width / self.spacing
 
         line_colors = self.random_interpolate(num_lines)
         path_builders = {
@@ -215,8 +212,8 @@ class GradientToPath(BaseFillExtension):
                 continue
             path_builders[f"{line_color[0]}_{line_color[1]}"].append(
                 inkex.paths.Move(
-                    x=(i - 0.5) * self.spacing + container_bbox.left(),
-                    y=container_bbox.top(),
+                    x=(i - 0.5) * self.spacing + container_bbox.left,
+                    y=container_bbox.top,
                 )
             )
             path_builders[f"{line_color[0]}_{line_color[1]}"].append(

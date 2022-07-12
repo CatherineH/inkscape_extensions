@@ -16,6 +16,37 @@ import subprocess
 from typing import List
 from functools import lru_cache
 from os.path import dirname, abspath, join
+import asyncio
+import signal
+import functools
+import os
+import errno
+import datetime
+
+
+class TimeoutError(Exception):
+    pass
+
+
+def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
+    def decorator(func):
+        def _handle_timeout(signum, frame):
+            raise TimeoutError(error_message)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            signal.signal(signal.SIGALRM, _handle_timeout)
+            signal.alarm(seconds)
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                signal.alarm(0)
+            return result
+
+        return wrapper
+
+    return decorator
+
 
 FOLDERNAME = join(dirname(abspath(__file__)), "output")
 TOLERANCE = 0.2
@@ -207,7 +238,11 @@ def make_stack_tree(lines, debug=False):
         segments_inside = []
         for segment in path2:
             print(f"lengths of paths to intersection {len(segment)=} {len(path1)=}")
+            loop = asyncio.ProactorEventLoop()
+            asyncio.set_event_loop(loop)
+
             intersections = intersect_over_all(segment, path1, exit_early=True)
+
             if len(intersections) > 0:
                 segments_inside.append(1)
             else:
@@ -277,10 +312,28 @@ def stack_lines(lines):
     return combined_lines, labels
 
 
+def paths_are_degenerate(path1, path2):
+    if abs(path1.point(0.5) - path2.point(0.5)) > TOLERANCE:
+        return False
+    if (
+        abs(path1.point(0) - path1.point(0)) < TOLERANCE
+        and abs(path1.point(1) - path1.point(1)) < TOLERANCE
+    ):
+        return True
+    if (
+        abs(path1.point(0) - path1.point(1)) < TOLERANCE
+        and abs(path1.point(1) - path1.point(0)) < TOLERANCE
+    ):
+        return True
+    return False
+
+
 def intersect_over_all(line, path, exit_early=False):
     all_intersections = []
     for i, segment in enumerate(path):
         try:
+            if paths_are_degenerate(line, segment):
+                continue
             current_intersections = line.intersect(segment)
             if current_intersections and exit_early:
                 return current_intersections

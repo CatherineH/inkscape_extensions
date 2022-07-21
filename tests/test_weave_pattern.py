@@ -23,8 +23,6 @@ class TestWeaveFill(TestCase):
         assert effect.svg.selected
         effect.save(open(join(FOLDERNAME, f"{target}_WeaveFill.svg"), "wb"))
         assert effect.all_paths
-        old_path = effect.svg.getElementById(target)
-        assert isinstance(old_path, inkex.elements.PathElement)
 
     def test_odd_shape(self):
         target = "weave"
@@ -35,4 +33,3 @@ class TestWeaveFill(TestCase):
         assert effect.svg.selected
         effect.save(open(join(FOLDERNAME, f"{target}_WeaveFill.svg"), "wb"))
         assert effect.all_paths
-        old_path = effect.svg.getElementById(target)

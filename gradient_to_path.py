@@ -247,7 +247,7 @@ class GradientToPath(BaseFillExtension):
             if _color not in stops_used:
                 stops_used.append(_color)
             stop_i = stops_used.index(_color)
-            paths[stop_i] += " " + _node.get_path()
+            paths[stop_i] += " " + str(_node.get_path())
 
         for i, stop_i in enumerate(list(paths.keys())):
             _color = stops_used[stop_i]

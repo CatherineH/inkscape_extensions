@@ -1,4 +1,6 @@
+import logging
 from copy import deepcopy
+from time import time
 
 import inkex
 from constraint import Problem
@@ -136,7 +138,6 @@ class JewelTexture(BaseFillExtension):
                     to_prune.append(i)
                     to_prune.append(j)
         assert to_prune
-        print(to_prune)
         # for each of the edges to prune, merge the edge with its friend
         for i in to_prune:
             cycle_edges = [
@@ -256,6 +257,9 @@ class JewelTexture(BaseFillExtension):
                     continue
                 if _comparison_edge[2] == _edge[2]:
                     continue
+                print(
+                    "populate edges comparison", _edge[2].d(), _comparison_edge[2].d()
+                )
                 if not _edge[2].intersect(_comparison_edge[2]):
                     keep = True
                     continue
@@ -436,8 +440,12 @@ class JewelTexture(BaseFillExtension):
                 return
             self.build_paths()
         else:
+            logging.debug("generate permutated graph")
             self.generate_permutated_graph()
+            logging.debug("generate permutated path")
             self.generate_permutated_paths()
+
+        logging.debug("find solution path")
         self.find_solution()
 
         if not self.solution:

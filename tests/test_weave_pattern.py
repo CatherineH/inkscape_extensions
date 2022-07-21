@@ -1,6 +1,8 @@
 import sys
 from os.path import dirname, abspath, join
 
+import inkex.elements
+
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from weave_pattern import WeaveFill
@@ -21,10 +23,8 @@ class TestWeaveFill(TestCase):
         assert effect.svg.selected
         effect.save(open(join(FOLDERNAME, f"{target}_WeaveFill.svg"), "wb"))
         assert effect.all_paths
-        old_path = effect.svg.getElementById(target).path
-        new_path = effect.svg.getElementById(f"segment0").path
-        assert new_path
-        assert old_path
+        old_path = effect.svg.getElementById(target)
+        assert isinstance(old_path, inkex.elements.PathElement)
 
     def test_odd_shape(self):
         target = "weave"
@@ -35,7 +35,4 @@ class TestWeaveFill(TestCase):
         assert effect.svg.selected
         effect.save(open(join(FOLDERNAME, f"{target}_WeaveFill.svg"), "wb"))
         assert effect.all_paths
-        old_path = effect.svg.getElementById(target).path
-        new_path = effect.svg.getElementById(f"segment0").path
-        assert new_path
-        assert old_path
+        old_path = effect.svg.getElementById(target)

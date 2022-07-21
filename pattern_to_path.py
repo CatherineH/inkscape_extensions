@@ -11,13 +11,13 @@ from common_utils import (
 
 class PatternToPath(BaseFillExtension):
     def __init__(self):
-        BaseFillExtension.__init__(self)
+        BaseFillExtension.__init__(self, self.recursive_pattern_to_path)
         self._patterns = {}
         self.current_path = 1
         self.current_id = ""
         self.current_pattern_part = 1
         self._debug_pattern_list = []
-        self.wrapping_bboxes = py2geom.PathBuilder()
+        self.wrapping_bboxes = inkex.Path()
 
     def add_arguments(self, pars):
         pars.add_argument(
@@ -50,12 +50,12 @@ class PatternToPath(BaseFillExtension):
     def generate_wrapping_paper(self, container_pv, repeating_bbox, repeating_pattern):
         # pattern repeats is a path that takes the repeating_pattern and copies it up and down over
         # the entire container path, like wrapping paper
-        pattern_repeats = py2geom.PathVector()
+        pattern_repeats = inkex.Path()
 
         for i, _path in enumerate(container_pv):
 
-            _path_pv = py2geom.PathVector()
-            _path_pv.push_back(_path)
+            _path_pv = inkex.Path()
+            _path_pv.append(_path)
             container_bbox = bounds_rect(_path)
             # print("path ", i, py2geom.write_svg_path(_path_pv))
             # need to get the bounding box from the bounding box

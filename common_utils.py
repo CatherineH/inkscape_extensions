@@ -1,3 +1,4 @@
+import logging
 from typing import KeysView
 import inkex
 
@@ -279,7 +280,9 @@ def make_stack_tree(lines, debug=False):
             if not cell:
                 continue
             stack_tree[i].append(j)
-            if i in root_nodes:
+            if (
+                i in root_nodes and j in root_nodes
+            ):  # remove j from the root nodes, as it obviously had a parent
                 root_nodes.remove(j)
     return stack_tree, root_nodes
 
@@ -293,7 +296,10 @@ def stack_lines(lines):
     while root_nodes:
         current_node = root_nodes.pop()
         if current_node in labels:
-            raise ValueError(f"went over the same node more than once! {current_node}")
+            logging.warning(
+                f"went over the same node more than once! {current_node}, {labels}"
+            )
+            continue
         child_nodes = stack_tree[current_node]
         to_inspect = None  # 47
         parent_orientation = find_orientation(lines[current_node])

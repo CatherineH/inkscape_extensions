@@ -15,7 +15,7 @@ class TestJewelTexture(TestCase):
     def test_basic(self):
         target = "rect31"
         _file = "laptop_cover.svg"
-        args = [f"--id={target}", "--minimum=10", self.data_file(_file)]
+        args = [f"--id={target}", "--minimum=20", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
         effect.save(open("output/jewel_texture_output.svg", "wb"))

@@ -519,6 +519,7 @@ class HitomezashiFill(BaseFillExtension):
         # greedy algorithm: make a Hitomezashi fill that covers the entire bounding box of the shape,
         # then go through each segment and figure out if it is inside, outside, or intersecting the shape
 
+        self.options.fill = False if self.options.fill == "false" else True
         self.container = parse_path(pattern_vector_to_d(node))
 
         self.container.approximate_arcs_with_quads()

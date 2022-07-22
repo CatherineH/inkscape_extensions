@@ -20,7 +20,7 @@ class TestGradientToPath(TestCase):
         effect.run(args)
         effect.save(open("output/w3_linear_gradient_rect2.svg", "wb"))
         old_path = effect.svg.getElementById(target).path
-        new_path = effect.svg.getElementById(f"gradient-red_1").path
+        new_path = effect.svg.getElementById(f"{target}-1").path
         assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
         assert len(new_path) > len(old_path)
 
@@ -32,7 +32,7 @@ class TestGradientToPath(TestCase):
         effect.run(args)
         effect.save(open("output/w3_linear_gradient_rect1.svg", "wb"))
         old_path = effect.svg.getElementById(target).path
-        new_path = effect.svg.getElementById(f"gradient-red_1").path
+        new_path = effect.svg.getElementById(f"{target}-1").path
         assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
         assert len(new_path) > len(old_path)
 
@@ -53,9 +53,9 @@ class TestGradientToPath(TestCase):
         old_path = effect.svg.getElementById(target).path
         for i in range(0, 5):
             print(f"paths{i}")
-            new_path = effect.svg.getElementById(f"points{i}").path
+            new_path = effect.svg.getElementById(f"{target}-{i}").path
             assert new_path
-            stroke = effect.svg.getElementById(f"points{i}").style.get("stroke")
+            stroke = effect.svg.getElementById(f"{target}-{i}").style.get("stroke")
             assert stroke != "None"
 
     def test_gradient_sampling(self):
@@ -123,9 +123,9 @@ class TestGradientToPath(TestCase):
         old_path = effect.svg.getElementById(target).path
         for i in range(0, 5):
             print(f"paths{i}")
-            new_path = effect.svg.getElementById(f"points{i}").path
+            new_path = effect.svg.getElementById(f"{target}-{i}").path
             assert new_path
-            stroke = effect.svg.getElementById(f"points{i}").style.get("stroke")
+            stroke = effect.svg.getElementById(f"{target}-{i}").style.get("stroke")
             assert stroke != "None"
 
     def test_rainbow_odd(self):
@@ -145,9 +145,9 @@ class TestGradientToPath(TestCase):
         old_path = effect.svg.getElementById(target).path
         for i in range(0, 5):
             print(f"paths{i}")
-            new_path = effect.svg.getElementById(f"points{i}").path
+            new_path = effect.svg.getElementById(f"{target}-{i}").path
             assert new_path
-            stroke = effect.svg.getElementById(f"points{i}").style.get("stroke")
+            stroke = effect.svg.getElementById(f"{target}-{i}").style.get("stroke")
             assert stroke != "None"
 
 

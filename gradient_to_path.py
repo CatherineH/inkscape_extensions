@@ -260,7 +260,7 @@ class GradientToPath(BaseFillExtension):
             )
             if transf:
                 _node.set("transform", node.get("transform"))
-            _node.set("id", f"points{i}")
+            _node.set("id", f"{node.get('id')}-{stop_i}")
             self.get_parent(node).insert(-1, _node)
 
     def sample_color(self, bbox, point, debug=False):

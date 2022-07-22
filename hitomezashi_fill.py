@@ -43,7 +43,8 @@ class HitomezashiFill(BaseFillExtension):
         self.outline_intersections = []
         self.outline_nodes = []
         # build a graph of which edge points connect where
-        self.graph = defaultdict(dict)
+        self.graph = defaultdict(list)
+        self.edges = []
         self.graph_locs = []
         self.edges_to_visit = []
         self.visited_edges = []
@@ -307,76 +308,7 @@ class HitomezashiFill(BaseFillExtension):
         for key1 in self.graph:
             for key2 in self.graph[key1]:
                 self.edges_to_visit.append([key1, key2])
-
-        self.visited_edges = []
-        start_time = time()
-        while self.edges_to_visit:
-            chain_start_time = time()
-            curr_edge = self.edges_to_visit.pop()
-
-            print(
-                f"evaluating {curr_edge} num edges to visit: {len(self.edges_to_visit)} visited: {self.visited_edges}"
-            )
-
-            if curr_edge in self.visited_edges:
-                print(f"already visited {curr_edge}")
-                continue
-            chained_line = curr_edge
-            self.get_branches(chained_line)
-            assert self.last_branches
-            num_iterations = 0
-
-            while self.last_branches:
-                chained_line = self.last_branches.pop(0)
-                # re-sort the branches every additional 100
-                self._debug_branches.append(chained_line)
-
-                is_complete = self.get_branches(chained_line, False)
-                if is_complete:
-                    break
-                num_iterations += 1
-            overlap_pass = self.audit_overlap(chained_line)
-            """
-            if len(chained_line) < 4 or abs(self.graph_locs[chained_line[0]] - self.graph_locs[chained_line[-1]]) > TOLERANCE or not overlap_pass:
-                self.plot_graph()
-                for loc in self._evaluated:
-                    self.add_marker(loc, color="green")
-                self.add_chained_line(chained_line)
-                self.add_marker(chained_line[0])
-                print(f"failed on line {format_complex(chained_line)}, aborting. start/end difference is: {abs(self.graph_locs[chained_line[0]] - self.graph_locs[chained_line[-1]])} and overlap audit is {overlap_pass}")
-                debug_screen(self, "test_failed_connect")
-                raise ValueError()
-            """
-            self.last_branches = []
-            self._debug_branches = []
-            self._evaluated = []
-            print("adding chained line", len(self.chained_lines), chained_line)
-            self.chained_lines.append(chained_line)
-            for i in range(len(chained_line)):
-                _edge = [
-                    chained_line[i],
-                    chained_line[(i + 1) % (len(chained_line) - 1)],
-                ]
-                if _edge not in self.visited_edges:
-                    print(f"adding edge {_edge}")
-                    self.visited_edges.append(deepcopy(_edge))
-                _edge.reverse()
-                if _edge not in self.visited_edges:
-                    print(f"adding edge reversed {_edge}")
-                    self.visited_edges.append(_edge)
-            # self.visited_edges.sort(key=lambda x: x[0] * len(self.visited_edges) + x[1])
-
-        print(f"chaining took {time()-start_time} num lines {len(self.chained_lines)}")
-        for i, chained_line in enumerate(self.chained_lines):
-            print(i, chained_line)
-        # convert to segments
-        paths = []
-        for chained_line in self.chained_lines:
-            segments = []
-            for i in range(1, len(chained_line)):
-                segments.append(self.graph[chained_line[i - 1]][chained_line[i]])
-            paths.append(combine_segments(segments))
-        return paths
+        return inkex.boolean_operations.chain_graph(self.graph, self.edges_to_visit)
 
     def audit_overlap(self, chained_line, tail_end=[], curr_point=None):
         # confirm that the chained line does not double back on itself

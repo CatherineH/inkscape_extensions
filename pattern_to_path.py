@@ -56,7 +56,8 @@ class PatternToPath(BaseFillExtension):
 
             _path_pv = inkex.Path()
             _path_pv.append(_path)
-            container_bbox = _path.bounding_box()
+            container_bbox = _path_pv.bounding_box()
+            assert container_bbox, f"container is empty: {_path_pv=} {_path=}"
             # print("path ", i, py2geom.write_svg_path(_path_pv))
             # need to get the bounding box from the bounding box
             pattern_x = container_bbox.left()
@@ -64,11 +65,21 @@ class PatternToPath(BaseFillExtension):
 
             # for debug only
             num_repeats = 0
-            self.wrapping_bboxes.append(inkex.paths.move(container_bbox.left(), container_bbox.top()))
-            self.wrapping_bboxes.append(inkex.paths.line(container_bbox.right(), container_bbox.top()))
-            self.wrapping_bboxes.append(inkex.paths.line(container_bbox.right(), container_bbox.bottom()))
-            self.wrapping_bboxes.append(inkex.paths.line(container_bbox.left(), container_bbox.bottom()))
-            self.wrapping_bboxes.append(inkex.paths.line(container_bbox.left(), container_bbox.top()))
+            self.wrapping_bboxes.append(
+                inkex.paths.move(container_bbox.left(), container_bbox.top())
+            )
+            self.wrapping_bboxes.append(
+                inkex.paths.line(container_bbox.right(), container_bbox.top())
+            )
+            self.wrapping_bboxes.append(
+                inkex.paths.line(container_bbox.right(), container_bbox.bottom())
+            )
+            self.wrapping_bboxes.append(
+                inkex.paths.line(container_bbox.left(), container_bbox.bottom())
+            )
+            self.wrapping_bboxes.append(
+                inkex.paths.line(container_bbox.left(), container_bbox.top())
+            )
             num_x_translations = 0
             # set to the initial x/y
             loc = repeating_pattern.bounding_box()
@@ -153,7 +164,7 @@ class PatternToPath(BaseFillExtension):
         return pattern, transf
 
     def generate_pattern_path(
-        self, node, container_path, repeating_box, repeating_pattern, pattern_style
+        self, node, repeating_box, repeating_pattern, pattern_style
     ):
         # repeating_pattern should always have something
         if len(repeating_pattern) == 0:
@@ -163,9 +174,9 @@ class PatternToPath(BaseFillExtension):
             return
 
         pattern_repeats = self.generate_wrapping_paper(
-            container_path, repeating_box, repeating_pattern
+            node, repeating_box, repeating_pattern
         )
-        container_intersection = container_path.intersect(pattern_repeats)
+        container_intersection = node.intersect(pattern_repeats)
         parent = self.get_parent(node)
         unknown_name = f"unknown-{self.current_path}"
         pattern_id = (
@@ -191,7 +202,7 @@ class PatternToPath(BaseFillExtension):
             pattern_id = get_fill_id(node)
             if not pattern_id:
                 return
-            container_path = pattern_vector_to_d(node)
+            container_path = node
             # reset the debug information
             self._debug_pattern_list = []
             pattern, pattern_transform = self.recursive_find_pattern(pattern_id)
@@ -227,9 +238,7 @@ class PatternToPath(BaseFillExtension):
                 )
                 if "stroke-width" in pattern_style:
                     # TODO: scale by the transform
-                    pattern_style["stroke-width"] = (
-                        float(pattern_style["stroke-width"])
-                    )
+                    pattern_style["stroke-width"] = float(pattern_style["stroke-width"])
                 style_attribs = ["fill", "fill-opacity", "stroke", "stroke-width"]
                 for attrib in style_attribs:
                     if attrib in pattern_vector.attrib:
@@ -239,7 +248,6 @@ class PatternToPath(BaseFillExtension):
                 self.current_pattern_part = i + 1
                 self.generate_pattern_path(
                     node,
-                    container_path,
                     repeating_box,
                     repeating_patterns[i],
                     pattern_styles[i],

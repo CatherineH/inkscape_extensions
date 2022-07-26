@@ -20,8 +20,9 @@ class TestGradientToPath(TestCase):
         effect.run(args)
         effect.save(open("output/w3_linear_gradient_rect2.svg", "wb"))
         old_path = effect.svg.getElementById(target).path
-        new_path = effect.svg.getElementById(f"{target}-1").path
+        new_path = effect.svg.getElementById(f"{target}-0").path
         assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
+        new_path = effect.svg.getElementById(f"{target}-2").path
         assert len(new_path) > len(old_path)
 
     def test_css_trct(self):
@@ -32,9 +33,10 @@ class TestGradientToPath(TestCase):
         effect.run(args)
         effect.save(open("output/w3_linear_gradient_rect1.svg", "wb"))
         old_path = effect.svg.getElementById(target).path
-        new_path = effect.svg.getElementById(f"{target}-1").path
+        new_path = effect.svg.getElementById(f"{target}-0").path
         assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
         assert len(new_path) > len(old_path)
+        new_path = effect.svg.getElementById(f"{target}-1").path
 
     def test_rainbow(self):
         target = "target"

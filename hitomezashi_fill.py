@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 from collections import defaultdict
+from typing import List
+
 from constraint import Problem
 
 try:
@@ -21,6 +23,7 @@ from common_utils import (
     find_orientation,
     svgpath_to_shapely_polygon,
 )
+from enum import Enum
 from random import random
 from svgpathtools import Line, Path, parse_path
 from functools import lru_cache
@@ -30,6 +33,73 @@ import colorsys
 from pickle import dump
 
 TOLERANCE = 0.2
+
+
+class Corner(Enum):
+    top_left = 0
+    top_right = 1
+    bottom_right = 2
+    bottom_left = 3
+
+    def project(self, container: inkex.paths.Path) -> float:
+        # get the bbox corner coordinates
+        bbox = container.bounding_box()
+        if self.value == self.top_left:
+            return bbox.left + bbox.top * 1j
+        if self.value == self.top_right:
+            return bbox.right + bbox.top * 1j
+        if self.value == self.bottom_left:
+            return bbox.left + bbox.bottom * 1j
+        if self.value == self.bottom_right:
+            return bbox.right + bbox.bottom * 1j
+
+
+class NearestEdge(Enum):
+    left = 0
+    top = 1
+    right = 2
+    bottom = 3
+
+    def is_opposite(self, other: Enum) -> bool:
+        if self.value % 2 == 0 and other.value % 2 == 0:
+            return True
+        if self.value % 2 == 1 and other.value % 2 == 1:
+            return True
+        return False
+
+    def corners_between(self, other: Enum) -> List[Corner]:
+        if self.value == other.value:
+            return []
+        if self.is_opposite(other):
+            return [Corner(self.value), Corner(NearestEdge((self.value + 1) % 3).value)]
+        if (self == self.left and other == other.top) or (
+            self == self.top and other == other.left
+        ):  # 0, 1 -> 0
+            return [Corner(Corner.top_left)]
+        if (self == self.left and other == other.bottom) or (
+            self == self.bottom and other == other.left
+        ):  # 0, 3 -> 3
+            return [Corner(Corner.bottom_left)]
+        if (self == self.right and other == other.top) or (
+            self == self.top and other == other.right
+        ):  # 1, 2 -> 1
+            return [Corner(Corner.top_right)]
+        if (self == self.right and other == other.bottom) or (
+            self == self.bottom and other == other.right
+        ):  # 2, 3 -> 2
+            return [Corner(Corner.bottom_right)]
+        raise ValueError(f"unknown edge combination: {self.value} {other.value}")
+
+    def project(self, point: float, container: inkex.paths.Path) -> float:
+        # project the point onto the bbox based on the nearest edge
+        if self.value == self.left:
+            return point.imag() * 1j + container.left()
+        if self.value == self.right:
+            return point.imag() * 1j + container.right()
+        if self.value == self.top:
+            return point.real() + container.top() * 1j
+        if self.value == self.bottom:
+            return point.real() + container.bottom() * 1j
 
 
 class HitomezashiFill(BaseFillExtension):
@@ -302,13 +372,42 @@ class HitomezashiFill(BaseFillExtension):
         # self.plot_graph(color="blue", label="simplified_graph", connected=False)
         # debug_screen(self, "test_graph_simplify")
         self.audit_graph()
+        # use the edge to make a loop that extends past the edges of the bbox add that to the stacks
+        loops: List[Path] = []
+        for edge in self.edges:
+            loop = [edge]
+            # which edge are the end points nearest?
+            start_edge = self.find_closest_edge(edge.start)
+            end_edge = self.find_closest_edge(edge.end)
+            corners_in_between = start_edge.corners_between(end_edge)
+            # add the border lines at the end of the path
+            loop.append(Line(start=edge.end, end=end_edge.project(edge.end)))
+            for corner_in_between in corners_in_between:
+                loop.append(
+                    Line(
+                        start=loop[-1].end,
+                        end=corner_in_between.project(self.container),
+                    )
+                )
+            loop.append(Line(start=loop[-1].end, end=start_edge.project(edge.start)))
+            loop.append(Line(start=start_edge.project(edge.start), end=edge.start))
+            loops.append(loop)
 
-        # algorithm design
-        # dump the keys in the graph into a unique list of points
-        for key1 in self.graph:
-            for key2 in self.graph[key1]:
-                self.edges_to_visit.append([key1, key2])
-        return inkex.boolean_operations.chain_graph(self.graph, self.edges_to_visit)
+        return loops
+
+    def find_closest_edge(self, point: float) -> NearestEdge:
+        bbox = self.container.bbox()
+        # left, top, right, bottom
+        _distance = [
+            point.real - bbox.left(),
+            point.imag - bbox.top(),
+            point.real - bbox.right(),
+            point.imag - bbox.bottom(),
+        ]
+        _distance = [abs(_d) for _d in _distance]
+        _min_distance = min(_distance)
+        index_of_min = _distance.index(_min_distance)
+        return NearestEdge(index_of_min)
 
     def audit_overlap(self, chained_line, tail_end=[], curr_point=None):
         # confirm that the chained line does not double back on itself
@@ -402,7 +501,7 @@ class HitomezashiFill(BaseFillExtension):
                 *self.graph[to_evaluate][end_i]
             ]
             segment = Path(*segments)
-
+            self.edges.append(segment)
             self.graph[start_i][end_i] = segment
             self.graph[end_i][start_i] = segment.reversed()
             del self.graph[to_evaluate]

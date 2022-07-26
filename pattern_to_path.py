@@ -176,7 +176,9 @@ class PatternToPath(BaseFillExtension):
         pattern_repeats = self.generate_wrapping_paper(
             node, repeating_box, repeating_pattern
         )
-        container_intersection = node.intersect(pattern_repeats)
+        container_intersection = inkex.Path(pattern_vector_to_d(node)).intersect(
+            pattern_repeats
+        )
         parent = self.get_parent(node)
         unknown_name = f"unknown-{self.current_path}"
         pattern_id = (

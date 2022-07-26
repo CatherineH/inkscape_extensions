@@ -15,7 +15,7 @@ class TestAddMarkers(TestCase):
     def test_basic(self):
         target = "heart"
         _file = "heart.svg"
-        args = [f"--id={target}", "--debug", "true", self.data_file(_file)]
+        args = [f"--id={target}", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
         effect.save(open("output/add_markers_heart.svg", "wb"))

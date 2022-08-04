@@ -51,6 +51,7 @@ class PatternToPath(BaseFillExtension):
         # pattern repeats is a path that takes the repeating_pattern and copies it up and down over
         # the entire container path, like wrapping paper
         pattern_repeats = inkex.Path()
+        assert len(container_pv)
 
         for i, _path in enumerate(container_pv):
 
@@ -60,53 +61,55 @@ class PatternToPath(BaseFillExtension):
             assert container_bbox, f"container is empty: {_path_pv=} {_path=}"
             # print("path ", i, py2geom.write_svg_path(_path_pv))
             # need to get the bounding box from the bounding box
-            pattern_x = container_bbox.left()
-            pattern_y = container_bbox.top()
+            pattern_x = container_bbox.left
+            pattern_y = container_bbox.top
 
             # for debug only
             num_repeats = 0
             self.wrapping_bboxes.append(
-                inkex.paths.move(container_bbox.left(), container_bbox.top())
+                inkex.paths.move(container_bbox.left, container_bbox.top)
             )
             self.wrapping_bboxes.append(
-                inkex.paths.line(container_bbox.right(), container_bbox.top())
+                inkex.paths.line(container_bbox.right, container_bbox.top)
             )
             self.wrapping_bboxes.append(
-                inkex.paths.line(container_bbox.right(), container_bbox.bottom())
+                inkex.paths.line(container_bbox.right, container_bbox.bottom)
             )
             self.wrapping_bboxes.append(
-                inkex.paths.line(container_bbox.left(), container_bbox.bottom())
+                inkex.paths.line(container_bbox.left, container_bbox.bottom)
             )
             self.wrapping_bboxes.append(
-                inkex.paths.line(container_bbox.left(), container_bbox.top())
+                inkex.paths.line(container_bbox.left, container_bbox.top)
             )
             num_x_translations = 0
             # set to the initial x/y
             loc = repeating_pattern.bounding_box()
 
-            start_x = pattern_x - loc.left()
-            start_y = pattern_y - loc.bottom()
+            start_x = pattern_x - loc.left
+            start_y = pattern_y - loc.bottom
             _affine = inkex.transforms.Transform()
             _affine.add_translate((start_x, start_y))
             repeating_pattern.transform(_affine, inplace=True)
             loc2 = repeating_pattern.bounding_box()
             assert (
-                loc.left() == 0 and pattern_x == 0
-            ) or loc.left() != loc2.left(), (
-                f"pattern does not seem to have moved: {loc.left()} {loc2.left()}"
+                loc.left == 0 and pattern_x == 0
+            ) or loc.left != loc2.left, (
+                f"pattern does not seem to have moved: {loc.left} {loc2.left}"
             )
             print(
-                f"boundaries {start_x} {start_y} {pattern_x} {pattern_y} {loc.left()} {loc.top()} {loc.bottom()} {loc.right()}"
+                f"boundaries {start_x} {start_y} {pattern_x} {pattern_y} {loc.left} {loc.top} {loc.bottom} {loc.right}"
             )
-            while pattern_x <= container_bbox.left() + container_bbox.width():
-                pattern_y = container_bbox.top()
+            while pattern_x <= container_bbox.left + container_bbox.width:
+                pattern_y = container_bbox.top
                 num_y_translations = 0
 
-                while pattern_y <= container_bbox.top() + container_bbox.height():
+                while pattern_y <= container_bbox.top + container_bbox.height:
                     _affine = inkex.transforms.Transform()
-                    _affine.add_translate((0, repeating_bbox.height()))
+                    _affine.add_translate((0, repeating_bbox.bounding_box().height))
                     if len(pattern_repeats) == 0:
                         pattern_repeats = repeating_pattern
+                    else:
+                        pattern_repeats.append(repeating_pattern)
 
                     # TODO: analyze whether skipping conversion speeds this up when there are no arches... or convert it first
                     # for some reason, bezier curves with unions merge together in weird ways, but arcs don't, maybe it's the zone close?
@@ -123,12 +126,12 @@ class PatternToPath(BaseFillExtension):
                                     for j,curve in enumerate(path):
                                         print(f"same? {i} {curve==repeating_pattern[i][j]}")
                     """
-                    _tmp_pv = repeating_pattern.intersect(pattern_repeats)
+                    _tmp_pv = repeating_pattern.intersection(pattern_repeats)
                     # the new path should always be more complex that the existing pattern
                     if len(_tmp_pv) < len(pattern_repeats):
                         inkex.utils.errormsg(
                             f"{self.current_id} curve counts {len(_tmp_pv)} {len(pattern_repeats)} \
-                        inputs were: repeating_pattern: '{repeating_pattern.d()}' pattern_repeats: '{pattern_repeats.d()}'"
+                        inputs were: repeating_pattern: '{repeating_pattern}' pattern_repeats: '{pattern_repeats}'"
                         )
                     pattern_repeats = _tmp_pv
                     num_y_translations += 1
@@ -137,15 +140,14 @@ class PatternToPath(BaseFillExtension):
                     # if num_repeats > 1:
                     #    return pattern_repeats
                     repeating_pattern.transform(_affine, inplace=True)
-                    pattern_y += repeating_bbox.height()
-                _affine = inkex.transforms.Transform()
-                _affine.add_translate(
-                    repeating_bbox.width(),
-                    -num_y_translations * repeating_bbox.height(),
-                )
+                    pattern_y += repeating_bbox.bounding_box().height
                 num_x_translations += 1
-                repeating_pattern.apply_transform(_affine, inplace=True)
-                pattern_x += repeating_bbox.width()
+                repeating_pattern.translate(
+                    repeating_bbox.bounding_box().width,
+                    -num_y_translations * repeating_bbox.bounding_box().height,
+                    inplace=True,
+                )
+                pattern_x += repeating_bbox.bounding_box().width
         return pattern_repeats
 
     def recursive_find_pattern(self, pattern_id, transf=None):
@@ -172,13 +174,13 @@ class PatternToPath(BaseFillExtension):
                 f"{node.get('id')} pattern piece {self.current_path} is empty"
             )
             return
-
+        container_path = inkex.Path(pattern_vector_to_d(node))
         pattern_repeats = self.generate_wrapping_paper(
-            node, repeating_box, repeating_pattern
+            container_path, repeating_box, repeating_pattern
         )
-        container_intersection = inkex.Path(pattern_vector_to_d(node)).intersect(
-            pattern_repeats
-        )
+        assert pattern_vector_to_d(node)
+        assert pattern_repeats
+        container_intersection = container_path.intersection(pattern_repeats)
         parent = self.get_parent(node)
         unknown_name = f"unknown-{self.current_path}"
         pattern_id = (

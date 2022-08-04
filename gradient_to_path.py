@@ -2,7 +2,7 @@
 import random
 from copy import deepcopy
 from enum import Enum
-
+import logging
 import inkex
 from collections import defaultdict
 from svgpathtools.path import Path
@@ -30,6 +30,7 @@ class GradientToPath(BaseFillExtension):
         self.circles = False
         self.stops_dict = {}
         self.offsets = []
+        self.bbox = None
 
     def add_arguments(self, pars):
         pars.add_argument("--debug", type=str, default="false", help="debug shapes")
@@ -49,7 +50,7 @@ class GradientToPath(BaseFillExtension):
                     "x1": node.get("x1", "0"),
                     "y1": node.get("y1", "0"),
                     "x2": node.get("x2", "1"),
-                    "y2": node.get("y2", "1"),
+                    "y2": node.get("y2", "0"),
                     "gradientUnits": node.get("gradientUnits", "objectBoundingBox"),
                 }
             )
@@ -64,19 +65,24 @@ class GradientToPath(BaseFillExtension):
                         "stop-opacity": float(stop.attrib.get("stop-opacity", 1.0)),
                     }
                 )
-                self._gradients[_id].add(
-                    inkex.Stop().update(
-                        offset=inkex.utils.parse_percent(
-                            stop.attrib.get("offset", "0")
-                        ),
-                        style=_style,
-                    )
+                _stop = inkex.Stop().update(
+                    offset=inkex.utils.parse_percent(stop.attrib.get("offset", "0")),
+                    id=stop.attrib.get("class") or stop.attrib.get("id"),
+                    style=_style,
                 )
+                assert _stop.get("id") == stop.attrib.get("class") or stop.attrib.get(
+                    "id"
+                )
+                self._gradients[_id].add(_stop)
         elif node.tag.find("style") >= 0:
             for _stylesheet in node.stylesheet():
                 for elem in self.svg.xpath(_stylesheet.to_xpath()):
-                    if elem.get("id"):
-                        self._style_sheets[elem.get("id")] = _stylesheet
+                    logging.debug(
+                        f"elem has elements {elem} {elem.get('id')} {elem.get('class')}"
+                    )
+                    id = elem.get("id") or elem.get("class")
+                    if id:
+                        self._style_sheets[id] = _stylesheet
                     elif elem.TAG == "stop":
                         for _key in _stylesheet.keys():
                             elem.set(_key, _stylesheet[_key])
@@ -96,6 +102,16 @@ class GradientToPath(BaseFillExtension):
                 css_style_sheet = self._style_sheets[node_id]
                 if "fill" in css_style_sheet:
                     pattern_id = css_style_sheet["fill"].replace("url(#", "")[:-1]
+            if pattern_id:
+                for stop in self._gradients[pattern_id].stops:
+                    logging.debug(
+                        f"looking up styles for {stop.get('id')} {self._style_sheets.get(stop.get('id'))}"
+                    )
+                    stop_style = self._style_sheets.get(stop.get("id"), {})
+                    for key, value in stop_style.items():
+                        stop.attrib[key] = value
+                    logging.debug("stop attribs ")
+
             if not pattern_id:
                 pattern_id = get_fill_id(node)
 
@@ -180,11 +196,9 @@ class GradientToPath(BaseFillExtension):
         return line_colors
 
     def generate(self, node, fill_type=FillShape.circles):
-        bbox = node.bounding_box()
         container_path = Path(pattern_vector_to_d(node))
-        print(bbox, container_path.bbox(), container_path.d())
         c_bbox = container_path.bbox()
-        bbox = inkex.transforms.BoundingBox(
+        self.bbox = inkex.transforms.BoundingBox(
             x=(c_bbox[0], c_bbox[1]), y=(c_bbox[2], c_bbox[3])
         )
         current_retry = 0
@@ -198,8 +212,8 @@ class GradientToPath(BaseFillExtension):
             curr_i += 1
             if curr_i > 50000:
                 raise ValueError("something is going wrong, unable to fill shape")
-            _x = random.random() * (bbox.right - bbox.left) + bbox.left
-            _y = random.random() * (bbox.bottom - bbox.top) + bbox.top
+            _x = random.random() * (self.bbox.right - self.bbox.left) + self.bbox.left
+            _y = random.random() * (self.bbox.bottom - self.bbox.top) + self.bbox.top
             # first confirm that the _x, _y is inside
             is_inside = inkex.boolean_operations.segment_is_inside(
                 container_path, _x + _y * 1j
@@ -226,14 +240,11 @@ class GradientToPath(BaseFillExtension):
             current_retry = 0
             _color = deepcopy(
                 self.sample_color(
-                    bbox,
                     inkex.transforms.Vector2d(_x, _y),
                     debug=self.options.debug == "true",
                 )
             )
             _locations.append((_x, _y, _color))
-            if self.options.debug == "true":
-                print(f"adding circle {_x} {_y} {_color}")
 
             if fill_type == FillShape.circles:
                 _node = inkex.elements.Circle.new(
@@ -241,8 +252,8 @@ class GradientToPath(BaseFillExtension):
                 )
             else:
                 _node = inkex.elements.Line.new(
-                    start=inkex.transforms.Vector2d(_x, bbox.top),
-                    end=inkex.transforms.Vector2d(_x, bbox.bottom),
+                    start=inkex.transforms.Vector2d(_x, self.bbox.top),
+                    end=inkex.transforms.Vector2d(_x, self.bbox.bottom),
                 )
             if _color not in stops_used:
                 stops_used.append(_color)
@@ -251,7 +262,6 @@ class GradientToPath(BaseFillExtension):
 
         for i, stop_i in enumerate(list(paths.keys())):
             _color = stops_used[stop_i]
-            print(i, _color, paths[stop_i])
             _node = inkex.elements.PathElement()
             _node.set("d", paths[stop_i])
             _node.set(
@@ -263,8 +273,8 @@ class GradientToPath(BaseFillExtension):
             _node.set("id", f"{node.get('id')}-{stop_i}")
             self.get_parent(node).insert(-1, _node)
 
-    def sample_color(self, bbox, point, debug=False):
-        stops = self.gradient.sample_color(bbox, point, debug=debug)
+    def sample_color(self, point, debug=False):
+        stops = self.gradient.sample_color(self.bbox, point, debug=debug)
         _random = random.random()
         if debug:
             print(stops, _random)

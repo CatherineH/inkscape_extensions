@@ -205,6 +205,7 @@ def make_stack_tree(lines, debug=False):
     -------
     a tuple - first element is a graph, second element is a list of root notes
     """
+    assert lines
 
     @lru_cache(None)
     def pairwise_comparison(i, j, debug=False):
@@ -217,7 +218,10 @@ def make_stack_tree(lines, debug=False):
             return 0
         path1 = lines[i]
         path2 = lines[j]
-
+        if isinstance(path1, list):
+            path1 = Path(*path1)
+        if isinstance(path2, list):
+            path2 = Path(*path2)
         # returns True if path1 is inside path2
         xmin1, xmax1, ymin1, ymax1 = path1.bbox()
         xmin2, xmax2, ymin2, ymax2 = path2.bbox()
@@ -272,6 +276,7 @@ def make_stack_tree(lines, debug=False):
             _matrix[i][j] *= row_total
     stack_matrix = matrix(_matrix)
     # convert to a minimum spanning tree such that each line is just in one parent
+    assert stack_matrix
     stack_matrix = minimum_spanning_tree(stack_matrix, overwrite=True).toarray()
     stack_tree = defaultdict(list)
     root_nodes = [i for i in range(len(lines))]

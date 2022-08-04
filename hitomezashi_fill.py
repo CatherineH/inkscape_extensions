@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import logging
 from collections import defaultdict
 from typing import List
 
@@ -41,17 +42,18 @@ class Corner(Enum):
     bottom_right = 2
     bottom_left = 3
 
-    def project(self, container: inkex.paths.Path) -> float:
+    def project(self, container: Path) -> float:
         # get the bbox corner coordinates
-        bbox = container.bounding_box()
+        left, top, right, bottom = container.bbox()
         if self.value == self.top_left:
-            return bbox.left + bbox.top * 1j
+            return left + top * 1j
         if self.value == self.top_right:
-            return bbox.right + bbox.top * 1j
+            return right + top * 1j
         if self.value == self.bottom_left:
-            return bbox.left + bbox.bottom * 1j
+            return left + bottom * 1j
         if self.value == self.bottom_right:
-            return bbox.right + bbox.bottom * 1j
+            return right + bottom * 1j
+        raise ValueError("not sure what corner type this is!")
 
 
 class NearestEdge(Enum):
@@ -100,6 +102,7 @@ class NearestEdge(Enum):
             return point.real() + container.top() * 1j
         if self.value == self.bottom:
             return point.real() + container.bottom() * 1j
+        raise ValueError(f"not sure what edge this is {self.value=}")
 
 
 class HitomezashiFill(BaseFillExtension):
@@ -113,7 +116,7 @@ class HitomezashiFill(BaseFillExtension):
         self.outline_intersections = []
         self.outline_nodes = []
         # build a graph of which edge points connect where
-        self.graph = defaultdict(list)
+        self.graph = defaultdict(dict)
         self.edges = []
         self.graph_locs = []
         self.edges_to_visit = []
@@ -156,8 +159,8 @@ class HitomezashiFill(BaseFillExtension):
                 self.add_marker(
                     chained_line[i - 1], label=f"missing-segment-{i}", color="green"
                 )
-                print(f"outline nodes are {self.outline_nodes}")
-                print(
+                logging.debug(f"outline nodes are {self.outline_nodes}")
+                logging.debug(
                     f"got key error on: {chained_line[i]} not in {self.graph.get(chained_line[i-1], {}).keys()} {self.graph[chained_line[i]].keys()}"
                 )
         stroke_length = self.options.length / 10
@@ -212,7 +215,7 @@ class HitomezashiFill(BaseFillExtension):
                             f"{label}-{start_i}-{end_i}",
                         )
                     except AttributeError as e:
-                        print(f"skipping {self.graph[start_i][end_i]}")
+                        logging.debug(f"skipping {self.graph[start_i][end_i]}")
                         pass
 
     def chop_shape(self, lines):
@@ -246,9 +249,8 @@ class HitomezashiFill(BaseFillExtension):
             if (
                 line.length() < TOLERANCE * self.options.length
             ):  # skip this one because it's too short
-                print("skipping: ", line)
+                logging.debug(f"skipping: {line}")
                 continue
-
             line_i = self.snap_nodes(line.start)
             line_j = self.snap_nodes(line.end)
 
@@ -297,8 +299,9 @@ class HitomezashiFill(BaseFillExtension):
             if (
                 segment.length() < TOLERANCE * self.options.length
             ):  # skip this one because it's too short
-                print("skipping: ", start_intersection, end_intersection)
+                logging.debug(f"skipping: {start_intersection=} {end_intersection=}")
                 continue
+
             self.graph[start_i][end_i] = segment
             self.graph[end_i][start_i] = segment.reversed()
             if start_i not in self.outline_nodes:
@@ -314,7 +317,7 @@ class HitomezashiFill(BaseFillExtension):
         if len(chained_line) > 3 and chained_line[0] == chained_line[-1]:
             # the loop is closed, yippee!
             if debug:
-                print(f"closing loop {format_complex(chained_line)}")
+                logging.debug(f"closing loop {format_complex(chained_line)}")
             return 1
         if len(chained_line) >= 3:
             # check whether it's possible to close the loop now
@@ -328,12 +331,14 @@ class HitomezashiFill(BaseFillExtension):
                     pass
             if loop_index:
                 if debug:
-                    print(
+                    logging.debug(
                         f"chained_line {len(self._debug_branches)} loops back on itself at index {loop_index} {format_complex(chained_line)} "
                     )
                 return 0
         if debug:
-            print(f"chained line {format_complex(chained_line)} is valid, continuing")
+            logging.debug(
+                f"chained line {format_complex(chained_line)} is valid, continuing"
+            )
         return 2
 
     def get_branches(self, chained_line, debug=False):
@@ -357,7 +362,7 @@ class HitomezashiFill(BaseFillExtension):
         for branch in branches:
             chain_to_add = deepcopy(chained_line) + [branch]
             if debug:
-                print(f"adding {chain_to_add}")
+                logging.debug(f"adding {chain_to_add}")
             self.last_branches.append(chain_to_add)
 
         return None
@@ -374,6 +379,7 @@ class HitomezashiFill(BaseFillExtension):
         self.audit_graph()
         # use the edge to make a loop that extends past the edges of the bbox add that to the stacks
         loops: List[Path] = []
+        assert self.edges
         for edge in self.edges:
             loop = [edge]
             # which edge are the end points nearest?
@@ -381,7 +387,9 @@ class HitomezashiFill(BaseFillExtension):
             end_edge = self.find_closest_edge(edge.end)
             corners_in_between = start_edge.corners_between(end_edge)
             # add the border lines at the end of the path
-            loop.append(Line(start=edge.end, end=end_edge.project(edge.end)))
+            loop.append(
+                Line(start=edge.end, end=end_edge.project(self.container, edge.end))
+            )
             for corner_in_between in corners_in_between:
                 loop.append(
                     Line(
@@ -389,20 +397,29 @@ class HitomezashiFill(BaseFillExtension):
                         end=corner_in_between.project(self.container),
                     )
                 )
-            loop.append(Line(start=loop[-1].end, end=start_edge.project(edge.start)))
-            loop.append(Line(start=start_edge.project(edge.start), end=edge.start))
+            loop.append(
+                Line(
+                    start=loop[-1].end,
+                    end=start_edge.project(self.container, edge.start),
+                )
+            )
+            loop.append(
+                Line(
+                    start=start_edge.project(self.container, edge.start), end=edge.start
+                )
+            )
             loops.append(loop)
 
         return loops
 
     def find_closest_edge(self, point: float) -> NearestEdge:
-        bbox = self.container.bbox()
+        left, top, right, bottom = self.container.bbox()
         # left, top, right, bottom
         _distance = [
-            point.real - bbox.left(),
-            point.imag - bbox.top(),
-            point.real - bbox.right(),
-            point.imag - bbox.bottom(),
+            point.real - left,
+            point.imag - top,
+            point.real - right,
+            point.imag - bottom,
         ]
         _distance = [abs(_d) for _d in _distance]
         _min_distance = min(_distance)
@@ -444,16 +461,16 @@ class HitomezashiFill(BaseFillExtension):
             pb.closePath()
             chained_lines_pv.push_back(pb.flush())
         container_pv = py2geom.parse_svg_path(self.container.d())
-        print(f"path building took {time()-start_time}")
+        logging.debug(f"path building took {time()-start_time}")
         start_time = time()
         intersection_pv = intersection(container_pv, chained_lines_pv)
-        print(f"bool op took {time()-start_time}")
+        logging.debug(f"bool op took {time()-start_time}")
         start_time = time()
         output_chained_lines = []
         for piece in intersection_pv:
             piece_d = py2geom.write_svg_path(piece)
             output_chained_lines.append(Path(piece_d))
-        print(f"decomp took {time()-start_time}")
+        logging.debug(f"decomp took {time()-start_time}")
         return output_chained_lines
 
     def snap_nodes(self, node):
@@ -468,7 +485,7 @@ class HitomezashiFill(BaseFillExtension):
         """merge any nodes that have only two outputs into a path between the two.
         Keep doing this until there are no more nodes to evaluate"""
         all_nodes = deepcopy(list(self.graph.keys()))
-        print(f"before simplification the graph had {len(all_nodes)} nodes")
+        logging.debug(f"before simplification the graph had {len(all_nodes)} nodes")
         while all_nodes:
             to_evaluate = all_nodes.pop()
             branches = list(self.graph[to_evaluate].keys())
@@ -510,7 +527,9 @@ class HitomezashiFill(BaseFillExtension):
             assert self.graph[start_i][end_i]
             assert self.graph[end_i][start_i]
 
-        print(f"after simplification the graph has {len(self.graph.keys())} nodes")
+        logging.debug(
+            f"after simplification the graph has {len(self.graph.keys())} nodes"
+        )
 
     def audit_graph(self):
         # check whether there are points that are very close together
@@ -521,7 +540,7 @@ class HitomezashiFill(BaseFillExtension):
                     continue
                 diff = abs(self.graph_locs[node_i] - self.graph_locs[node_j])
                 if diff < TOLERANCE * self.options.length:
-                    print(f"nodes {node_j} and {node_i} are only {diff} apart")
+                    logging.debug(f"nodes {node_j} and {node_i} are only {diff} apart")
 
         def out_of_bounds(node_i):
             node = self.graph_locs[node_i]
@@ -626,16 +645,13 @@ class HitomezashiFill(BaseFillExtension):
             _ = self.chop_shape(lines)
 
             lines = self.chain_graph()
-            print(f"graph {self.graph}")
             # next: we need to stack and cut the paths out of each other
-            dump(lines, open("tests/data/lines.pickle", "wb"))
-            print(f"number of lines to stack {len(lines)}")
             combined_lines, labels = stack_lines(lines)
             # combined_lines = lines
             color_fills = self.color_pattern(combined_lines)
             lines = [line.d() for line in combined_lines]
-            print(f"labels {len(labels)} {labels}")
-            print(f"combined lines {len(combined_lines)}")
+            logging.debug(f"labels {len(labels)} {labels}")
+            logging.debug(f"combined lines {len(combined_lines)}")
         for i, chained_line in enumerate(lines):
             if chained_line == "":
                 raise ValueError(f"got empty chained_path! {i} {chained_line}")
@@ -678,7 +694,7 @@ class HitomezashiFill(BaseFillExtension):
                 r, g, b = RGB_tuples[i]
                 _style = f"fill:#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
                 self.add_path_node(combined_lines[i].d(), style=_style, id=f"shape-{i}")
-                # print(i, connections[i])
+                # logging.debug(i, connections[i])
                 # for j in connections[i]:
                 #    self.add_path_node(combined_lines[j].d(), style=_style, id=f"neighbor-{i}-{j}")
             debug_screen(self, "two_color_failure")

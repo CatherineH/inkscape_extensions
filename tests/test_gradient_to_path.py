@@ -18,6 +18,11 @@ class TestGradientToPath(TestCase):
         args = [f"--id={target}", "--debug", "true", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
+        print([stop.style for stop in effect._gradients["Gradient2"].stops])
+        assert effect.gradient.stops[2].style == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
+        assert effect.gradient.stops[0].style == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
+        assert effect.sample_color(inkex.transforms.Vector2d(10, 120)) == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
+        assert effect.sample_color(inkex.transforms.Vector2d(10, 220)) == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
         effect.save(open("output/w3_linear_gradient_rect2.svg", "wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"{target}-0").path
@@ -31,6 +36,14 @@ class TestGradientToPath(TestCase):
         args = [f"--id={target}", "--debug", "true", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
+
+        print([stop.style for stop in effect._gradients["Gradient1"].stops])
+        print([stop.offset for stop in effect._gradients["Gradient1"].stops])
+        assert effect.gradient.stops[0].style == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
+        assert effect.gradient.stops[2].style == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
+        assert effect.sample_color(inkex.transforms.Vector2d(10, 10)) == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
+        assert effect.sample_color(inkex.transforms.Vector2d(1100, 10)) == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
+
         effect.save(open("output/w3_linear_gradient_rect1.svg", "wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"{target}-0").path
@@ -76,12 +89,10 @@ class TestGradientToPath(TestCase):
         ]
         effect.run(args)
         bbox = inkex.transforms.BoundingBox(x=(0, 100), y=(0, 100))
-        red_color = effect.sample_color(
-            bbox, inkex.transforms.Vector2d(0, 0), debug=True
+        red_color = effect.sample_color(inkex.transforms.Vector2d(0, 0), debug=True
         )
         assert str(red_color) == "stop-color:red;stop-opacity:1.0"
-        blue_color = effect.sample_color(
-            bbox, inkex.transforms.Vector2d(99.9, 0), debug=True
+        blue_color = effect.sample_color(inkex.transforms.Vector2d(99.9, 0), debug=True
         )
         assert str(blue_color) == "stop-color:#ff00ff;stop-opacity:1.0"
 
@@ -100,11 +111,9 @@ class TestGradientToPath(TestCase):
             self.data_file(_file),
         ]
         effect.run(args)
-        bbox = inkex.transforms.BoundingBox(x=(0, 100), y=(0, 100))
-        red_i = effect.sample_color(bbox, inkex.transforms.Vector2d(0, 0), debug=True)
+        red_i = effect.sample_color(inkex.transforms.Vector2d(0, 0), debug=True)
         assert str(red_i) == "stop-color:red;stop-opacity:1.0"
-        blue_i = effect.sample_color(
-            bbox, inkex.transforms.Vector2d(99.9, 0), debug=True
+        blue_i = effect.sample_color(inkex.transforms.Vector2d(99.9, 0), debug=True
         )
         assert str(blue_i) == "stop-color:#ff00ff;stop-opacity:1.0"
 

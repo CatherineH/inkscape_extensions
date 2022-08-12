@@ -3,14 +3,20 @@ from typing import KeysView
 import inkex
 
 try:
+    inkex.paths.Path().to_svgpathtools()
+except AttributeError:
+    from inspect import getfile
+    inkex.utils.errormsg(f"bad version of inkex lib {getfile(inkex.paths.Path)}")
+
+try:
     from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
     from svgpathtools import Path, Line
-except ImportError:
+    from numpy import matrix
+    from scipy.sparse.csgraph import minimum_spanning_tree
+except ImportError as err:
     import sys
+    inkex.utils.errormsg(f"{err} on {sys.executable}")
 
-    inkex.utils.errormsg(f"svgpathtools is not available on {sys.executable}")
-from numpy import matrix
-from scipy.sparse.csgraph import minimum_spanning_tree
 from collections import defaultdict
 from math import atan
 import subprocess
@@ -22,7 +28,6 @@ import signal
 import functools
 import os
 import errno
-import datetime
 
 
 class TimeoutError(Exception):

@@ -75,9 +75,16 @@ class AddMarkers(BaseFillExtension):
             default=10,
             help="The length of the marker",
         )
+        pars.add_argument(
+            "--union", type=str, default="false", help="merge the markers with the design"
+        )
 
     def add_marker(self, node):
-        node.path = node.path.union(self.marker_path)
+
+        if self.options.union == "false":
+            node.path = node.path.union(self.marker_path)
+        else:
+            self.add_path_node(str(self.marker_path), node.get("style"), node.get("id")+"_marker")
 
 
 if __name__ == "__main__":

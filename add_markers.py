@@ -1,5 +1,5 @@
 import inkex
-
+from typing import List
 from common_utils import append_verify, BaseFillExtension
 
 
@@ -10,6 +10,7 @@ class AddMarkers(BaseFillExtension):
         self.bbox = inkex.transforms.BoundingBox(x=0, y=0)
         assert self.effect_handle == self.add_marker
         # marker path
+        self.marker_paths: List[inkex.Path()] = []
         self.marker_path = inkex.Path()
 
     def generate_markers(self):
@@ -30,9 +31,9 @@ class AddMarkers(BaseFillExtension):
             if bottom < _bbox.bottom:
                 bottom = _bbox.bottom
 
-        if not left or not right or not top or not bottom:
+        if left is None or right is None or top is None or bottom is None:
             raise ValueError(
-                f"invalid overall bounding box on {self.svg.selected.items()}"
+                f"invalid overall bounding box on {left=}  {right=} {top=} {bottom=} {self.svg.selected.items()}"
             )
         self.bbox = inkex.transforms.BoundingBox(x=(left, right), y=(top, bottom))
         self.add_cross(
@@ -64,6 +65,8 @@ class AddMarkers(BaseFillExtension):
         self.add_marker_path(inkex.paths.line(dx=self.options.width, dy=0))
         self.add_marker_path(inkex.paths.line(dx=0, dy=-self.options.length))
         # self.add_marker_path(inkex.paths.Line(x=x+self.options.width/2, y=y+self.options.width/2))
+        self.marker_paths.append(self.marker_path)
+        self.marker_path = inkex.Path()
 
     def add_arguments(self, pars):
         pars.add_argument(
@@ -80,11 +83,14 @@ class AddMarkers(BaseFillExtension):
         )
 
     def add_marker(self, node):
-
-        if self.options.union == "false":
-            node.path = node.path.union(self.marker_path)
-        else:
-            self.add_path_node(str(self.marker_path), node.get("style"), node.get("id")+"_marker")
+        for i, _marker in enumerate(self.marker_paths):
+            # if the marker intersects with the target shape, don't add it
+            if node.path.intersection(_marker):
+                continue
+            if self.options.union == "false":
+                node.path = node.path.union(_marker)
+            else:
+                self.add_path_node(str(_marker), node.get("style"), node.get("id")+"_marker_"+str(i))
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@
 	<script>
 		<command reldir="extensions" interpreter="python">add_markers.py</command>
 	</script>
-	<param name="union" type="bool" default="true" gui-text="merge the markers with the design" />
+	<param name="union" type="bool" default="true" gui-text="separate the markers from the design" />
 	<param name="width" type="float" default="2" gui-text="the marker width">2</param>
 	<param name="length" type="float" default="10" gui-text="the marker length">10</param>
 

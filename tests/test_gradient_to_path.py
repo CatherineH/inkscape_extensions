@@ -1,8 +1,9 @@
 # add the root level extensions folder to the PYTHONPATH
 import sys
 from os.path import dirname, abspath, join
+ROOT_DIR = dirname(dirname(abspath(__file__)))
 
-sys.path.append(dirname(dirname(abspath(__file__))))
+sys.path.append(ROOT_DIR)
 
 from gradient_to_path import GradientToPath
 from inkex.tester import TestCase
@@ -23,7 +24,7 @@ class TestGradientToPath(TestCase):
         assert effect.gradient.stops[0].style == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
         assert effect.sample_color(inkex.transforms.Vector2d(10, 120)) == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
         assert effect.sample_color(inkex.transforms.Vector2d(10, 220)) == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
-        effect.save(open("output/w3_linear_gradient_rect2.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/w3_linear_gradient_rect2.svg"), "wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"{target}-0").path
         assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
@@ -44,7 +45,7 @@ class TestGradientToPath(TestCase):
         assert effect.sample_color(inkex.transforms.Vector2d(10, 10)) == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
         assert effect.sample_color(inkex.transforms.Vector2d(1100, 10)) == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
 
-        effect.save(open("output/w3_linear_gradient_rect1.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/w3_linear_gradient_rect1.svg"), "wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"{target}-0").path
         assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
@@ -64,7 +65,7 @@ class TestGradientToPath(TestCase):
         ]
         effect = self.effect_class()
         effect.run(args)
-        effect.save(open("output/rainbow_saturated.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/rainbow_saturated.svg"), "wb"))
         old_path = effect.svg.getElementById(target).path
         for i in range(0, 5):
             print(f"paths{i}")
@@ -130,7 +131,7 @@ class TestGradientToPath(TestCase):
         ]
         effect = self.effect_class()
         effect.run(args)
-        effect.save(open("output/rainbow_saturated_rotated.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/rainbow_saturated_rotated.svg"), "wb"))
         old_path = effect.svg.getElementById(target).path
         for i in range(0, 5):
             print(f"paths{i}")
@@ -152,7 +153,7 @@ class TestGradientToPath(TestCase):
         ]
         effect = self.effect_class()
         effect.run(args)
-        effect.save(open("output/rainbow_saturated_odd.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/rainbow_saturated_odd.svg"), "wb"))
         old_path = effect.svg.getElementById(target).path
         for i in range(0, 5):
             print(f"paths{i}")

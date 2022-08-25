@@ -193,7 +193,7 @@ class PatternToPath(BaseFillExtension):
             node_wrapping_paper.set("id", f"container-{pattern_id}")
             parent.insert(0, node_wrapping_paper)
         node_pattern = inkex.elements.PathElement()
-        node_pattern.set_path(container_intersection.d())
+        node_pattern.set_path(str(container_intersection))
         node_pattern.set("style", pattern_style)
         node_pattern.set("id", pattern_id)
         if self.options.remove == "true":

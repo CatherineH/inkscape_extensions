@@ -45,13 +45,13 @@ class Corner(Enum):
     def project(self, container: Path) -> float:
         # get the bbox corner coordinates
         left, top, right, bottom = container.bbox()
-        if self.value == self.top_left:
+        if self.value == self.top_left.value:
             return left + top * 1j
-        if self.value == self.top_right:
+        if self.value == self.top_right.value:
             return right + top * 1j
-        if self.value == self.bottom_left:
+        if self.value == self.bottom_left.value:
             return left + bottom * 1j
-        if self.value == self.bottom_right:
+        if self.value == self.bottom_right.value:
             return right + bottom * 1j
         raise ValueError("not sure what corner type this is!")
 
@@ -92,16 +92,17 @@ class NearestEdge(Enum):
             return [Corner(Corner.bottom_right)]
         raise ValueError(f"unknown edge combination: {self.value} {other.value}")
 
-    def project(self, point: float, container: inkex.paths.Path) -> float:
+    def project(self, point: complex, container: inkex.paths.Path) -> float:
         # project the point onto the bbox based on the nearest edge
-        if self.value == self.left:
-            return point.imag() * 1j + container.left()
-        if self.value == self.right:
-            return point.imag() * 1j + container.right()
-        if self.value == self.top:
-            return point.real() + container.top() * 1j
-        if self.value == self.bottom:
-            return point.real() + container.bottom() * 1j
+        left, top, right, bottom = container.bbox()
+        if self.value == self.left.value:
+            return point.imag * 1j + left
+        if self.value == self.right.value:
+            return point.imag * 1j + right
+        if self.value == self.top.value:
+            return point.real + top * 1j
+        if self.value == self.bottom.value:
+            return point.real + bottom * 1j
         raise ValueError(f"not sure what edge this is {self.value=}")
 
 
@@ -388,7 +389,7 @@ class HitomezashiFill(BaseFillExtension):
             corners_in_between = start_edge.corners_between(end_edge)
             # add the border lines at the end of the path
             loop.append(
-                Line(start=edge.end, end=end_edge.project(self.container, edge.end))
+                Line(start=edge.end, end=end_edge.project(edge.end, self.container))
             )
             for corner_in_between in corners_in_between:
                 loop.append(
@@ -400,12 +401,12 @@ class HitomezashiFill(BaseFillExtension):
             loop.append(
                 Line(
                     start=loop[-1].end,
-                    end=start_edge.project(self.container, edge.start),
+                    end=start_edge.project(edge.start, self.container),
                 )
             )
             loop.append(
                 Line(
-                    start=start_edge.project(self.container, edge.start), end=edge.start
+                    start=start_edge.project(edge.start, self.container), end=edge.start
                 )
             )
             loops.append(loop)

@@ -16,7 +16,7 @@ class TestGradientToPath(TestCase):
     def test_basic(self):
         target = "rect2"
         _file = "w3_linear_gradient.svg"
-        args = [f"--id={target}", "--debug", "true", self.data_file(_file)]
+        args = [f"--id={target}", self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
         print([stop.style for stop in effect._gradients["Gradient2"].stops])
@@ -25,6 +25,7 @@ class TestGradientToPath(TestCase):
         assert effect.sample_color(inkex.transforms.Vector2d(10, 120)) == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
         assert effect.sample_color(inkex.transforms.Vector2d(10, 220)) == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
         effect.save(open(join(ROOT_DIR, "output/w3_linear_gradient_rect2.svg"), "wb"))
+
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"{target}-0").path
         assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
@@ -48,9 +49,9 @@ class TestGradientToPath(TestCase):
         effect.save(open(join(ROOT_DIR, "output/w3_linear_gradient_rect1.svg"), "wb"))
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"{target}-0").path
-        assert len(new_path) > 40, f"len(new_path) {len(new_path)}"
         assert len(new_path) > len(old_path)
         new_path = effect.svg.getElementById(f"{target}-1").path
+        assert len(new_path) > len(old_path)
 
     def test_rainbow(self):
         target = "target"

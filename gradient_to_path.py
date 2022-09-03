@@ -77,9 +77,6 @@ class GradientToPath(BaseFillExtension):
         elif node.tag.find("style") >= 0:
             for _stylesheet in node.stylesheet():
                 for elem in self.svg.xpath(_stylesheet.to_xpath()):
-                    logging.debug(
-                        f"elem has elements {elem} {elem.get('id')} {elem.get('class')}"
-                    )
                     id = elem.get("id") or elem.get("class")
                     if id:
                         self._style_sheets[id] = _stylesheet
@@ -104,13 +101,9 @@ class GradientToPath(BaseFillExtension):
                     pattern_id = css_style_sheet["fill"].replace("url(#", "")[:-1]
             if pattern_id:
                 for stop in self._gradients[pattern_id].stops:
-                    logging.debug(
-                        f"looking up styles for {stop.get('id')} {self._style_sheets.get(stop.get('id'))}"
-                    )
-                    stop_style = self._style_sheets.get(stop.get("id"), {})
-                    for key, value in stop_style.items():
-                        stop.attrib[key] = value
-                    logging.debug("stop attribs ")
+                    style_sheet = self._style_sheets.get(stop.get('id'), {})
+                    stop.style = inkex.Style([('stop-color', style_sheet.get("stop-color", "none")),
+                                              ('stop-opacity', style_sheet.get("stop-opacity", "1.0"))])
 
             if not pattern_id:
                 pattern_id = get_fill_id(node)
@@ -173,9 +166,6 @@ class GradientToPath(BaseFillExtension):
 
             field_fraction = end_offset - start_offset
             field_bins = num_bins * field_fraction
-            print(
-                f"evaluating offset {start_offset} {end_offset} {field_bins} {field_fraction} {self.stops_dict[start_offset]} {self.stops_dict[end_offset]}"
-            )
 
             for i in range(int(field_bins)):
                 slope = -bin_size / field_bins
@@ -277,7 +267,7 @@ class GradientToPath(BaseFillExtension):
         stops = self.gradient.sample_color(self.bbox, point, debug=debug)
         _random = random.random()
         if debug:
-            print(stops, _random)
+            logging.debug(f"{stops=} {random=}")
 
         if len(stops) == 1:
             return stops[0][1].style

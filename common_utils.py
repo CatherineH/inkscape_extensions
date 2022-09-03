@@ -344,9 +344,11 @@ def paths_are_degenerate(path1, path2):
     return False
 
 
-def intersect_over_all(line, path, exit_early=False):
+def intersect_over_all(line, path: Path, exit_early=False):
     all_intersections = []
     for i, segment in enumerate(path):
+        assert not isinstance(segment, Path), f"wrong object class for intersect, path is of type {type(segment)=}"
+
         try:
             if paths_are_degenerate(line, segment):
                 continue

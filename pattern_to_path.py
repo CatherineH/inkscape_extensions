@@ -188,7 +188,7 @@ class PatternToPath(BaseFillExtension):
         )
         if self.options.boundaries == "true":
             node_wrapping_paper = inkex.elements.PathElement()
-            node_wrapping_paper.set_path(pattern_repeats.d())
+            node_wrapping_paper.set_path(str(pattern_repeats))
             node_wrapping_paper.set("style", "fill:none;stroke:blue;stroke-width:2")
             node_wrapping_paper.set("id", f"container-{pattern_id}")
             parent.insert(0, node_wrapping_paper)
@@ -259,7 +259,7 @@ class PatternToPath(BaseFillExtension):
             # for debug
             if self.options.boundaries == "true":
                 node_container = inkex.elements.PathElement()
-                node_container.set_path(self.wrapping_bboxes.d())
+                node_container.set_path(str(self.wrapping_bboxes))
                 node_container.set("style", "fill:none;stroke:black;stroke-width:2")
                 node_container.set("id", "container-path")
                 node.getparent().insert(0, node_container)

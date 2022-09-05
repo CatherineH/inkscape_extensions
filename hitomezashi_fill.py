@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import List
 
 from constraint import Problem
-
+from functools import lru_cache
 try:
     import inkex
 except ImportError:
@@ -27,11 +27,9 @@ from common_utils import (
 from enum import Enum
 from random import random
 from svgpathtools import Line, Path, parse_path
-from functools import lru_cache
 import sys
 from copy import deepcopy
 import colorsys
-from pickle import dump
 
 TOLERANCE = 0.2
 
@@ -45,13 +43,13 @@ class Corner(Enum):
     def project(self, container: Path) -> float:
         # get the bbox corner coordinates
         left, top, right, bottom = container.bbox()
-        if self.value == self.top_left.value:
+        if self == self.top_left:
             return left + top * 1j
-        if self.value == self.top_right.value:
+        if self == self.top_right:
             return right + top * 1j
-        if self.value == self.bottom_left.value:
+        if self == self.bottom_left:
             return left + bottom * 1j
-        if self.value == self.bottom_right.value:
+        if self == self.bottom_right:
             return right + bottom * 1j
         raise ValueError("not sure what corner type this is!")
 
@@ -95,15 +93,15 @@ class NearestEdge(Enum):
     def project(self, point: complex, container: inkex.paths.Path) -> float:
         # project the point onto the bbox based on the nearest edge
         left, top, right, bottom = container.bbox()
-        if self.value == self.left.value:
+        if self == self.left:
             return point.imag * 1j + left
-        if self.value == self.right.value:
+        if self == self.right:
             return point.imag * 1j + right
-        if self.value == self.top.value:
+        if self == self.top:
             return point.real + top * 1j
-        if self.value == self.bottom.value:
+        if self == self.bottom:
             return point.real + bottom * 1j
-        raise ValueError(f"not sure what edge this is {self.value=}")
+        raise ValueError(f"not sure what edge this is {self=}")
 
 
 class HitomezashiFill(BaseFillExtension):

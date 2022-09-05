@@ -221,11 +221,15 @@ def make_stack_tree(lines, debug=False):
             if debug:
                 print(f"already evaluated {j}, {i}")
             return 0
-        path1 = lines[i]
-        path2 = lines[j]
+        path1 = combine_segments(lines[i])
+        path2 = combine_segments(lines[j])
         if isinstance(path1, list):
+            _types = [segment for segment in path1 if isinstance(path1, Path)]
+            assert not _types, f"got path of paths {path1=}"
             path1 = Path(*path1)
         if isinstance(path2, list):
+            _types = [segment for segment in path2 if isinstance(path1, Path)]
+            assert not _types, f"got path of paths {path1=}"
             path2 = Path(*path2)
         # returns True if path1 is inside path2
         xmin1, xmax1, ymin1, ymax1 = path1.bbox()

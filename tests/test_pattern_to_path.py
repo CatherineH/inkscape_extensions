@@ -1,8 +1,9 @@
 # add the root level extensions folder to the PYTHONPATH
 import sys
 from os.path import dirname, abspath, join
+ROOT_DIR = dirname(dirname(abspath(__file__)))
 
-sys.path.append(dirname(dirname(abspath(__file__))))
+sys.path.append(ROOT_DIR)
 
 from pattern_to_path import PatternToPath
 from inkex.tester import TestCase
@@ -19,7 +20,7 @@ class TestPatternToPath(TestCase):
         effect.run(args)
         old_path = effect.svg.getElementById(target).path
         new_path = effect.svg.getElementById(f"pattern-path-{target}1").path
-        effect.save(open("output/pattern_test_output.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/pattern_test_output.svg"), "wb"))
         assert len(new_path) > len(old_path)
 
     def test_remove(self):
@@ -27,7 +28,7 @@ class TestPatternToPath(TestCase):
         args = [f"--id={target}", "--remove", "true", self.data_file("w3_example.svg")]
         effect = self.effect_class()
         effect.run(args)
-        effect.save(open("output/w3_example_output_remove.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/w3_example_output_remove.svg"), "wb"))
         new_path = effect.svg.getElementById(f"pattern-path-{target}1").path
         assert new_path
         old_path = effect.svg.getElementById(target)
@@ -40,7 +41,7 @@ class TestPatternToPath(TestCase):
         pattern_object1 = effect.svg.getElementById("pattern-path-w3rect1")
         pattern_object2 = effect.svg.getElementById("pattern-path-w3rect2")
         pattern_object3 = effect.svg.getElementById("pattern-path-w3rect3")
-        effect.save(open("output/w3_example_output.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/w3_example_output.svg"), "wb"))
 
         assert pattern_object1 is not None
         style_dict = dict(
@@ -102,7 +103,7 @@ class TestPatternToPath(TestCase):
         print(args)
         effect = self.effect_class()
         effect.run(args)
-        effect.save(open("output/blockcc855_pattern_output.svg", "wb"))
+        effect.save(open(join(ROOT_DIR, "output/blockcc855_pattern_output.svg"), "wb"))
         pattern_object1 = effect.svg.getElementById(f"pattern-path-{pattern}1")
         assert len(pattern_object1.path) > 0
         container_path = effect.svg.getElementById(

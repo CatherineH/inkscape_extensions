@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+	<_name>Add Markers</_name>
+	<id>com.catherineh.filter.cut_offset</id>
+	<dependency type="executable" location="extensions">cut_offset.py</dependency>
+	<effect>
+		<object-type>all</object-type>
+		<effects-menu>
+			<submenu _name="Catherine's Extensions" />
+		</effects-menu>
+	</effect>
+	<script>
+		<command reldir="extensions" interpreter="python">cut_offset.py</command>
+	</script>
+	<param name="target_id" type="str" default="target" gui-text="The ID of the target">target</param>
+	<param name="offset" type="float" default="10" gui-text="Spacing offset between the target and the selected pieces">10</param>
+
+</inkscape-extension>

@@ -24,7 +24,7 @@ class CutOffset(BaseFillExtension):
         self.offset_target = _path.path.offset(self.options.offset)
 
     def cut_target(self, node):
-        node.path = node.path.difference(self.offset_target)
+        self.add_path_node(str(node.path.difference(self.offset_target)), style=node.get("style"), id=node.get("id")+"-cut")
 
 
 if __name__ == "__main__":

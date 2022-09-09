@@ -23,7 +23,7 @@ class TestGradientToPath(TestCase):
         assert effect.gradient.stops[2].style == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
         assert effect.gradient.stops[0].style == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
         assert effect.sample_color(inkex.transforms.Vector2d(10, 120)) == inkex.Style([('stop-color', 'blue'), ('stop-opacity', '1.0')])
-        assert effect.sample_color(inkex.transforms.Vector2d(10, 220)) == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
+        assert effect.sample_color(inkex.transforms.Vector2d(10, 220), debug=True) == inkex.Style([('stop-color', 'red'), ('stop-opacity', '1.0')])
         effect.save(open(join(ROOT_DIR, "output/w3_linear_gradient_rect2.svg"), "wb"))
 
         old_path = effect.svg.getElementById(target).path

@@ -15,7 +15,7 @@ class TestPatternToPath(TestCase):
 
     def test_basic(self):
         target = "rect10"
-        args = [f"--id={target}", self.data_file("pattern_test.svg")]
+        args = [f"--id={target}", "--boundaries=true", self.data_file("pattern_test.svg")]
         effect = self.effect_class()
         effect.run(args)
         old_path = effect.svg.getElementById(target).path
@@ -35,7 +35,7 @@ class TestPatternToPath(TestCase):
         assert old_path is None
 
     def test_w3_basic(self):
-        args = ["--id=w3rect", "--remove", "true", self.data_file("w3_example.svg")]
+        args = ["--id=w3rect", "--boundaries=true", "--remove", "true", self.data_file("w3_example.svg")]
         effect = self.effect_class()
         effect.run(args)
         pattern_object1 = effect.svg.getElementById("pattern-path-w3rect1")

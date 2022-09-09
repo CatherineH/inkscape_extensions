@@ -285,7 +285,7 @@ def make_stack_tree(lines, debug=False):
             _matrix[i][j] *= row_total
     stack_matrix = matrix(_matrix)
     # convert to a minimum spanning tree such that each line is just in one parent
-    assert stack_matrix
+    assert stack_matrix.any()
     stack_matrix = minimum_spanning_tree(stack_matrix, overwrite=True).toarray()
     stack_tree = defaultdict(list)
     root_nodes = [i for i in range(len(lines))]

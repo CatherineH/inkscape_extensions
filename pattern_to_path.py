@@ -59,7 +59,6 @@ class PatternToPath(BaseFillExtension):
             _path_pv.append(_path)
             container_bbox = _path_pv.bounding_box()
             assert container_bbox, f"container is empty: {_path_pv=} {_path=}"
-            # print("path ", i, py2geom.write_svg_path(_path_pv))
             # need to get the bounding box from the bounding box
             pattern_x = container_bbox.left
             pattern_y = container_bbox.top
@@ -96,9 +95,10 @@ class PatternToPath(BaseFillExtension):
             ) or loc.left != loc2.left, (
                 f"pattern does not seem to have moved: {loc.left} {loc2.left}"
             )
-            print(
-                f"boundaries {start_x} {start_y} {pattern_x} {pattern_y} {loc.left} {loc.top} {loc.bottom} {loc.right}"
-            )
+            if self.options.boundaries == "true":
+                print(
+                    f"boundaries {start_x} {start_y} {pattern_x} {pattern_y} {loc.left} {loc.top} {loc.bottom} {loc.right}"
+                )
             while pattern_x <= container_bbox.left + container_bbox.width:
                 pattern_y = container_bbox.top
                 num_y_translations = 0
@@ -220,7 +220,6 @@ class PatternToPath(BaseFillExtension):
             pattern_styles = []
             for pattern_vector in pattern.getchildren():
                 if "d" not in pattern_vector.attrib:
-                    # TODO: autoconvert using pylivarot
                     d_string = pattern_vector_to_d(pattern_vector)
                 else:
                     d_string = pattern_vector.attrib["d"]

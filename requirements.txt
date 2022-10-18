@@ -2,3 +2,4 @@ python-constraint
 lxml
 svgpathtools
 cssselect
+shapely

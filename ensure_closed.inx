@@ -12,7 +12,5 @@
 	<script>
 		<command reldir="extensions" interpreter="python">ensure_closed.py</command>
 	</script>
-	<param name="target_id" type="str" default="target" gui-text="The ID of the target">target</param>
-	<param name="offset" type="float" default="10" gui-text="Spacing offset between the target and the selected pieces">10</param>
 
 </inkscape-extension>

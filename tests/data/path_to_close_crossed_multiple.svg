@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="67.495705mm"
+   height="20.149704mm"
+   viewBox="0 0 67.495705 20.149704"
+   version="1.1"
+   id="svg5101"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
+   sodipodi:docname="path_to_close_crossed_multiple.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview5103"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.73851712"
+     inkscape:cx="173.32029"
+     inkscape:cy="404.86536"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs5098" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-59.105724,-41.687617)">
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583"
+       d="m 122.97746,43.824374 c -1.70745,-1.552528 -3.15267,-0.892212 -5.06815,-0.325798 -4.24615,1.255599 -7.41083,2.767082 -10.95081,5.497814 -4.21959,3.254987 -5.68125,6.178696 -11.358076,7.167523 -1.347973,0.234799 -2.887512,0.553638 -4.20837,-0.04073 -0.980035,-0.440999 -1.985182,-1.482135 -2.85083,-2.117677 -2.80017,-2.055831 -5.690947,-4.227605 -8.145232,-6.719551 -1.872001,-1.900725 -3.661685,-4.026038 -6.199429,-5.049846 -2.849713,-1.149665 -6.947688,0.350356 -9.593272,1.50681 -2.324476,1.016088 -4.839521,3.59741 -5.294403,6.190131 -0.239689,1.366168 0.123013,4.256704 1.267037,5.212744 3.199516,2.673776 10.674254,2.169943 14.118402,0.570143 3.760118,-1.746565 5.981149,-5.833753 9.910035,-7.289694 2.947241,-1.092171 6.51297,-1.894002 9.683776,-1.588257 4.195262,0.404527 6.438732,3.384915 9.231262,6.149406 1.05637,1.045766 2.36928,1.804789 3.5296,2.728545 3.95078,3.145308 5.71931,4.776094 10.86031,5.70144 0.77765,0.13997 1.89488,0.310523 2.71508,0.28507 1.00009,-0.03104 5.74395,-1.386036 5.83742,-2.199124 0.0327,-0.28479 -0.0603,-0.570146 -0.0905,-0.855218"
+       id="path_to_close_crossed_multiple" />
+  </g>
+</svg>

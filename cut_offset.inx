@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
-	<_name>Add Markers</_name>
+	<_name>Cut Offset</_name>
 	<id>com.catherineh.filter.cut_offset</id>
 	<dependency type="executable" location="extensions">cut_offset.py</dependency>
 	<effect>

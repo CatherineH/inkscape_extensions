@@ -20,7 +20,7 @@ except ImportError as err:
 from collections import defaultdict
 from math import atan
 import subprocess
-from typing import List
+from typing import List, Tuple
 from functools import lru_cache
 from os.path import dirname, abspath, join
 import asyncio
@@ -133,8 +133,10 @@ def transform_path_vector(pv, affine_t):
     return pv
 
 
-def find_orientation(in_path):
+def find_orientation(in_path:Path) -> bool:
     points = []
+    if not in_path:
+        return False
     for segment in in_path:
         points.append(segment.end)
     # https://en.wikipedia.org/wiki/Curve_orientation#Orientation_of_a_simple_polygon
@@ -195,6 +197,7 @@ def debug_screen(effect, name=None):
     name = name or str(effect)
 
     filename = join(FOLDERNAME, f"debug_{name}.svg")
+
     effect.save(open(filename, "wb"))
     subprocess.run(["inkview", filename])
 
@@ -251,7 +254,6 @@ def make_stack_tree(lines, debug=False):
         # if any of the points in path2 is inside path1, the line must be inside
         segments_inside = []
         for segment in path2:
-            print(f"lengths of paths to intersection {len(segment)=} {len(path1)=}")
             loop = asyncio.ProactorEventLoop()
             asyncio.set_event_loop(loop)
 
@@ -260,9 +262,6 @@ def make_stack_tree(lines, debug=False):
             if len(intersections) > 0:
                 segments_inside.append(1)
             else:
-                print(
-                    f"line does not intersect {Path(segment).d()} container {path1.d()}"
-                )
                 segments_inside.append(
                     is_inside(path1, segment.start, debug=debug, tolerance=0.01)
                 )
@@ -301,7 +300,7 @@ def make_stack_tree(lines, debug=False):
     return stack_tree, root_nodes
 
 
-def stack_lines(lines):
+def stack_lines(lines: List[Path]) -> Tuple[List[Path], List[str]]:
     stack_tree, root_nodes = make_stack_tree(lines)
     print(f"stack tree {stack_tree} ")
     combined_lines = []
@@ -320,15 +319,21 @@ def stack_lines(lines):
         combined_line = lines[current_node]
         for child_node in child_nodes:
             child_orientation = find_orientation(lines[child_node])
+            if not lines[child_node]:
+                continue
 
             if child_orientation == parent_orientation:
-                lines[child_node] = lines[child_node].reversed()
+                lines[child_node].reverse()
+
             for segment in lines[child_node]:
                 combined_line.append(segment)
             root_nodes.append(child_node)
         combined_lines.append(combined_line)
 
         labels.append(current_node)
+    for i,combined_line in enumerate(combined_lines):
+        if not isinstance(combined_line, Path):
+            combined_lines[i] = Path(*combined_line)
     return combined_lines, labels
 
 

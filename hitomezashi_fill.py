@@ -112,6 +112,7 @@ class HitomezashiFill(BaseFillExtension):
         self.ymin = None
         self.ymax = None
         self.container = None
+        self.saved_solution = []
         self.outline_intersections = []
         self.outline_nodes = []
         # build a graph of which edge points connect where
@@ -217,8 +218,9 @@ class HitomezashiFill(BaseFillExtension):
                         logging.debug(f"skipping {self.graph[start_i][end_i]}")
                         pass
 
-    def chop_shape(self, lines):
+    def chop_shape(self, lines: List[Path]) -> Path:
         final_lines = []
+        # chop the unconnected lines if they run outside the boundary shop
         for i, line in enumerate(lines):
             # determine whether each point on the line is inside or outside the shape
             start_inside = self.is_inside(line.start)
@@ -244,6 +246,7 @@ class HitomezashiFill(BaseFillExtension):
             if start_inside:
                 final_lines.append(Line(curr_start, line.end))
 
+        # make the graph of rectlinear node locations for these chopped down lines
         for line in final_lines:
             if (
                 line.length() < TOLERANCE * self.options.length
@@ -256,6 +259,7 @@ class HitomezashiFill(BaseFillExtension):
             self.graph[line_i][line_j] = Path(Line(line.start, line.end))
             self.graph[line_j][line_i] = Path(Line(line.end, line.start))
 
+        # handle how traversal around the shape edge goes
         self.outline_intersections = list(set(self.outline_intersections))
         self.outline_intersections.sort(key=lambda x: -x[0] - x[1])
         intersections_copy = self.outline_intersections
@@ -366,7 +370,7 @@ class HitomezashiFill(BaseFillExtension):
 
         return None
 
-    def chain_graph(self):
+    def chain_graph(self) -> List[Path]:
         # self.plot_graph(connected=False)
         self.simplify_graph()
         if len(self.graph.keys()) > 500:
@@ -378,7 +382,7 @@ class HitomezashiFill(BaseFillExtension):
         self.audit_graph()
         # use the edge to make a loop that extends past the edges of the bbox add that to the stacks
         loops: List[Path] = []
-        assert self.edges
+
         for edge in self.edges:
             loop = [edge]
             # which edge are the end points nearest?
@@ -473,10 +477,15 @@ class HitomezashiFill(BaseFillExtension):
         return output_chained_lines
 
     def snap_nodes(self, node):
+        diffs = {}
         for i, ex_node in enumerate(self.graph_locs):
             diff = abs(ex_node - node)
+            diffs[i] = diff
             if diff < TOLERANCE * self.options.length:
                 return i
+        #for node in diffs:
+        #    if diffs[node] < TOLERANCE * self.options.length:
+        #        return node
         self.graph_locs.append(node)
         return len(self.graph_locs) - 1
 
@@ -569,6 +578,7 @@ class HitomezashiFill(BaseFillExtension):
         # then go through each segment and figure out if it is inside, outside, or intersecting the shape
 
         self.options.fill = False if self.options.fill == "false" else True
+        self.options.gradient = False if self.options.gradient == "false" else True
         self.container = parse_path(pattern_vector_to_d(node))
 
         self.container.approximate_arcs_with_quads()
@@ -638,20 +648,25 @@ class HitomezashiFill(BaseFillExtension):
         labels = []
         if not self.options.fill:
             lines = [self.chop_shape(lines)]
-            lines = [line.d() for line in lines]
+            self.saved_solution = [line.d() for line in lines]
             labels = [i for i in range(len(lines))]
         else:
-            _ = self.chop_shape(lines)
-
-            lines = self.chain_graph()
+            lines = self.chop_shape(lines)
+            #self.plot_graph(connected=False)
+            #self.saved_solution = [lines]#[line for line in [lines]]
+            self.saved_solution = self.chain_graph()
+            self.plot_graph(connected=False)
+            for i, line in enumerate(self.saved_solution):
+                self.add_path_node(Path(*line).d(), style=f"fill:none;stroke:blue", id=f"loop{i}")
             # next: we need to stack and cut the paths out of each other
-            combined_lines, labels = stack_lines(lines)
-            # combined_lines = lines
+
+            combined_lines, labels = stack_lines(self.saved_solution)
+            #combined_lines = [Path(*line) for line in self.saved_solution]
             color_fills = self.color_pattern(combined_lines)
-            lines = [line.d() for line in combined_lines]
+            self.saved_solution = [line.d() for line in combined_lines]
             logging.debug(f"labels {len(labels)} {labels}")
             logging.debug(f"combined lines {len(combined_lines)}")
-        for i, chained_line in enumerate(lines):
+        for i, chained_line in enumerate(self.saved_solution):
             if chained_line == "":
                 raise ValueError(f"got empty chained_path! {i} {chained_line}")
             label = labels[i] if len(labels) > i else i
@@ -669,7 +684,7 @@ class HitomezashiFill(BaseFillExtension):
                     pattern_style += f";fill:{color}"
             self.add_path_node(chained_line, pattern_style, pattern_id)
 
-    def color_pattern(self, combined_lines):
+    def color_pattern(self, combined_lines: List[Path]):
         problem = Problem()
         _polygons = []
         for i in range(len(combined_lines)):
@@ -696,6 +711,9 @@ class HitomezashiFill(BaseFillExtension):
                 # logging.debug(i, connections[i])
                 # for j in connections[i]:
                 #    self.add_path_node(combined_lines[j].d(), style=_style, id=f"neighbor-{i}-{j}")
+            self.plot_graph(connected=False)
+            for i, line in enumerate(self.saved_solution):
+                self.add_path_node(Path(*line).d(), style=f"fill:none;stroke:blue", id=f"loop{i}")
             debug_screen(self, "two_color_failure")
             raise ValueError("there is no solution!")
         else:

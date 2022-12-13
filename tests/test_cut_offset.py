@@ -48,3 +48,15 @@ class TestCutOffset(TestCase):
         effect.save(open(os.path.join(ROOT_DIR, "output/cut_offset_target3.svg"), "wb"))
         new_path = effect.svg.getElementById(target+"-cut").path
         assert len(new_path) > 1
+
+    def test_m_path(self):
+        target = "target"
+        _file = "m_path.svg"
+        args = [f"--id={target}", "--offset=2", "--target=m_path", self.data_file(_file)]
+        effect = self.effect_class()
+
+        effect.run(args)
+        print(ROOT_DIR)
+        effect.save(open(os.path.join(ROOT_DIR, "output/cut_offset_m_path.svg"), "wb"))
+        new_path = effect.svg.getElementById(target + "-cut").path
+        assert len(new_path) > 1

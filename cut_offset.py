@@ -22,6 +22,7 @@ class CutOffset(BaseFillExtension):
     def find_offset_target(self):
         _path = self.svg.getElementById(self.options.target_id)
         self.offset_target = _path.path.offset(self.options.offset)
+        print(f"offset_target {self.offset_target}")
 
     def cut_target(self, node):
         self.add_path_node(str(node.path.difference(self.offset_target)), style=node.get("style"), id=node.get("id")+"-cut")

@@ -5,6 +5,7 @@ from typing import List
 
 from constraint import Problem
 from functools import lru_cache
+import pickle
 try:
     import inkex
 except ImportError:
@@ -21,6 +22,8 @@ from common_utils import (
     stack_lines,
     is_inside,
     intersect_over_all,
+    is_segment_diagonal,
+    FOLDERNAME,
     find_orientation,
     svgpath_to_shapely_polygon,
 )
@@ -384,35 +387,55 @@ class HitomezashiFill(BaseFillExtension):
         loops: List[Path] = []
 
         for edge in self.edges:
-            loop = [edge]
+            loop = Path(*edge)
+            print(f'original edge {loop.d()}')
             # which edge are the end points nearest?
             start_edge = self.find_closest_edge(edge.start)
             end_edge = self.find_closest_edge(edge.end)
             corners_in_between = start_edge.corners_between(end_edge)
             # add the border lines at the end of the path
-            loop.append(
-                Line(start=edge.end, end=end_edge.project(edge.end, self.container))
-            )
+            _projected_edge = Line(start=edge.end, end=end_edge.project(edge.end, self.container))
+            loop.append(_projected_edge)
+            print(f'added edge {_projected_edge}, loop: {loop.d()}')
             for corner_in_between in corners_in_between:
-                loop.append(
-                    Line(
+                _edge_in_between = Line(
                         start=loop[-1].end,
                         end=corner_in_between.project(self.container),
                     )
-                )
+                try:
+                    is_segment_diagonal(_edge_in_between)
+                except AssertionError as err:
+                    self.add_path_node(loop.d(), style="fill:none;stroke:blue", id="previous_loop")
+                    self.add_marker(loop[-1].end)
+                    debug_screen(self, "corner_failure")
+                    raise AssertionError(f"{err}, corner in between was {corner_in_between} {corners_in_between}")
+                loop.append(_edge_in_between)
+                print(f'added edge in between {_edge_in_between}, loop is now: {loop.d()}')
             loop.append(
                 Line(
                     start=loop[-1].end,
                     end=start_edge.project(edge.start, self.container),
                 )
             )
+            print(f'added edge projecting to start, loop is now: {loop.d()}')
             loop.append(
                 Line(
                     start=start_edge.project(edge.start, self.container), end=edge.start
                 )
             )
-            loops.append(loop)
+            print(f'added edge to close to start, loop is now: {loop.d()}')
+            if isinstance(loop, list):
+                loop = Path(*loop)
+            assert loop.start == loop.end
+            for segment in loop:
+                is_segment_diagonal(segment)
 
+            loops.append(loop)
+        """
+        _dump = {"container": self.container, "edges": self.edges}
+        with open(FOLDERNAME+"/chain_graph.pkl", "wb") as fh:
+            pickle.dump(_dump, fh)
+        """
         return loops
 
     def find_closest_edge(self, point: float) -> NearestEdge:

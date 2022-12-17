@@ -8,6 +8,8 @@ from hitomezashi_fill import HitomezashiFill
 from common_utils import debug_screen
 from inkex.tester import TestCase
 import inkex
+import pickle
+import xml.etree
 
 FOLDERNAME = join(dirname(dirname(abspath(__file__))), "output")
 
@@ -80,7 +82,6 @@ class TestHitomezashi(TestCase):
         new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
         effect.save(open(join(FOLDERNAME, f"test_large_hitomezashi.svg"), "wb"))
         assert new_path
-
 
     def test_large_fill(self):
         target = "rect31"
@@ -165,13 +166,30 @@ class TestHitomezashi(TestCase):
         effect.save(open(join(FOLDERNAME, f"test_large_gradient.svg"), "wb"))
         # assert new_path
 
+    def test_chain_graph(self):
+        effect = self.effect_class()
+        effect.document = xml.etree.ElementTree.ElementTree()
+        effect.document._setroot(xml.etree.ElementTree.fromstring("<svg></svg>"))
+        assert effect.document.getroot()
+        with open(self.data_file("chain_graph.pkl"), "rb") as fh:
+            chain_graph = pickle.load(fh)
+            effect.container = chain_graph["container"]
+            effect.edges = chain_graph["edges"]
+        loops = effect.chain_graph()
+        # confirm two things with all loops
+        # 1. the loop is closed
+        # 2. the loop does not contain lines at an angle
+        for i,loop in enumerate(loops):
+            assert loop.start == loop.end
+            for segment in loop:
+                xmin, xmax, ymin, ymax = segment.bbox()
+                diff_x = xmin-xmax
+                diff_y = ymin-ymax
+                assert diff_x == 0 or diff_y == 0, f"edge: {effect.edges[i].d()} loop: {loop.d()} - bbox {diff_x} {diff_y}"
+
 
 if __name__ == "__main__":
-    print("test_basic")
-    #TestHitomezashi().test_basic()
-    print("test_heart")
-    #TestHitomezashi().test_heart()
-    print("test_large_gradient")
-    TestHitomezashi().test_large_fill()
+    #TestHitomezashi().test_large_fill()
     #TestHitomezashi().test_large_gradient()
     #TestHitomezashi().test_large()
+    TestHitomezashi().test_chain_graph()

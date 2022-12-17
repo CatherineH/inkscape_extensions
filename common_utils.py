@@ -78,10 +78,12 @@ class BaseFillExtension(inkex.EffectExtension):
         self.init_handle = init_handle
 
     def get_parent(self, node):
+        if node is None:
+            _doc_root = self.document.getroot()
+            assert _doc_root
+            return _doc_root
         parent = node.getparent()
-        if parent is None:
-            parent = self.document.getroot()
-        return parent
+        return parent or self.document.getroot()
 
     def add_path_node(self, d_string, style, id):
         parent = self.get_parent(self.current_shape)
@@ -89,7 +91,7 @@ class BaseFillExtension(inkex.EffectExtension):
         _node.set_path(d_string)
         _node.set("style", style)
         _node.set("id", id)
-        if self.current_shape.get("transform"):
+        if self.current_shape and self.current_shape.get("transform"):
             _node.set("transform", self.current_shape.get("transform"))
         parent.insert(-1, _node)
 
@@ -497,3 +499,10 @@ def get_clockwise(last_point, curr_point, branches, counter=False):
         angles.index(compare_func(angles)),
         branches[angles.index(compare_func(angles))],
     )
+
+
+def is_segment_diagonal(segment: Line):
+    xmin, xmax, ymin, ymax = segment.bbox()
+    diff_x = xmin - xmax
+    diff_y = ymin - ymax
+    assert diff_x == 0 or diff_y == 0, f"diagonal segment: {segment}"

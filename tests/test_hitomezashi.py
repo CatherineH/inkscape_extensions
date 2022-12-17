@@ -138,6 +138,7 @@ class TestHitomezashi(TestCase):
             self.data_file(_file),
         ]
         effect = self.effect_class()
+
         effect.run(args)
         old_path = effect.svg.getElementById(target).path
         layer1 = effect.svg.getElementById("layer1")
@@ -168,9 +169,11 @@ class TestHitomezashi(TestCase):
 
     def test_chain_graph(self):
         effect = self.effect_class()
+        effect.options.length = 30
         effect.document = xml.etree.ElementTree.ElementTree()
-        effect.document._setroot(xml.etree.ElementTree.fromstring("<svg></svg>"))
-        assert effect.document.getroot()
+        _doc = inkex.elements._svg.SvgDocumentElement()
+        _doc.set("viewBox", "0 0 300.26459 210.26459")
+        effect.document._setroot(_doc)
         with open(self.data_file("chain_graph.pkl"), "rb") as fh:
             chain_graph = pickle.load(fh)
             effect.container = chain_graph["container"]

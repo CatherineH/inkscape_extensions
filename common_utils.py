@@ -80,7 +80,7 @@ class BaseFillExtension(inkex.EffectExtension):
     def get_parent(self, node):
         if node is None:
             _doc_root = self.document.getroot()
-            assert _doc_root
+            #assert _doc_root
             return _doc_root
         parent = node.getparent()
         return parent or self.document.getroot()

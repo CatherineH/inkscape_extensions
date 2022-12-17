@@ -45,7 +45,7 @@ class Corner(Enum):
 
     def project(self, container: Path) -> float:
         # get the bbox corner coordinates
-        left, top, right, bottom = container.bbox()
+        left, right, top, bottom = container.bbox()
         if self == self.top_left:
             return left + top * 1j
         if self == self.top_right:
@@ -53,6 +53,7 @@ class Corner(Enum):
         if self == self.bottom_left:
             return left + bottom * 1j
         if self == self.bottom_right:
+            print(f"in project right {right} bottom {bottom}")
             return right + bottom * 1j
         raise ValueError("not sure what corner type this is!")
 
@@ -95,7 +96,7 @@ class NearestEdge(Enum):
 
     def project(self, point: complex, container: inkex.paths.Path) -> float:
         # project the point onto the bbox based on the nearest edge
-        left, top, right, bottom = container.bbox()
+        left, right, top, bottom = container.bbox()
         if self == self.left:
             return point.imag * 1j + left
         if self == self.right:
@@ -172,30 +173,6 @@ class HitomezashiFill(BaseFillExtension):
             f"stroke:{color};stroke-width:{stroke_length};fill:none",
             label,
         )
-
-    def add_marker(self, point_i, label="marker", color="red"):
-        point = self.graph_locs[point_i]
-        marker_size = self.options.length / 10
-
-        marker = [
-            Line(
-                point + marker_size + marker_size * 1j,
-                point - marker_size + marker_size * 1j,
-            ),
-            Line(
-                point - marker_size + marker_size * 1j,
-                point - marker_size - marker_size * 1j,
-            ),
-            Line(
-                point - marker_size - marker_size * 1j,
-                point + marker_size - marker_size * 1j,
-            ),
-            Line(
-                point + marker_size - marker_size * 1j,
-                point + marker_size + marker_size * 1j,
-            ),
-        ]
-        self.add_path_node(Path(*marker).d(), f"fill:{color};stroke:none", label)
 
     def plot_graph(self, color="gray", label="graph", connected=True):
         # dump the graph
@@ -388,7 +365,6 @@ class HitomezashiFill(BaseFillExtension):
 
         for edge in self.edges:
             loop = Path(*edge)
-            print(f'original edge {loop.d()}')
             # which edge are the end points nearest?
             start_edge = self.find_closest_edge(edge.start)
             end_edge = self.find_closest_edge(edge.end)
@@ -396,7 +372,6 @@ class HitomezashiFill(BaseFillExtension):
             # add the border lines at the end of the path
             _projected_edge = Line(start=edge.end, end=end_edge.project(edge.end, self.container))
             loop.append(_projected_edge)
-            print(f'added edge {_projected_edge}, loop: {loop.d()}')
             for corner_in_between in corners_in_between:
                 _edge_in_between = Line(
                         start=loop[-1].end,
@@ -405,25 +380,27 @@ class HitomezashiFill(BaseFillExtension):
                 try:
                     is_segment_diagonal(_edge_in_between)
                 except AssertionError as err:
-                    self.add_path_node(loop.d(), style="fill:none;stroke:blue", id="previous_loop")
-                    self.add_marker(loop[-1].end)
+                    self.add_path_node(edge.d(), style="fill:none;stroke:blue", id="edge")
+                    self.add_path_node(loop.d(), style="fill:none;stroke:black", id="edge")
+                    self.add_path_node(Path(_edge_in_between).d(), style="fill:none;stroke:green", id="new_edge")
+                    self.add_path_node(self.container.d(), style="fill:none;stroke:gray", id="container")
+                    self.add_marker(edge.end)
+                    self.add_marker(edge.start, color="purple")
+                    print(f"{err}, corner in between was {corner_in_between} {corners_in_between}")
                     debug_screen(self, "corner_failure")
                     raise AssertionError(f"{err}, corner in between was {corner_in_between} {corners_in_between}")
                 loop.append(_edge_in_between)
-                print(f'added edge in between {_edge_in_between}, loop is now: {loop.d()}')
             loop.append(
                 Line(
                     start=loop[-1].end,
                     end=start_edge.project(edge.start, self.container),
                 )
             )
-            print(f'added edge projecting to start, loop is now: {loop.d()}')
             loop.append(
                 Line(
                     start=start_edge.project(edge.start, self.container), end=edge.start
                 )
             )
-            print(f'added edge to close to start, loop is now: {loop.d()}')
             if isinstance(loop, list):
                 loop = Path(*loop)
             assert loop.start == loop.end
@@ -439,7 +416,7 @@ class HitomezashiFill(BaseFillExtension):
         return loops
 
     def find_closest_edge(self, point: float) -> NearestEdge:
-        left, top, right, bottom = self.container.bbox()
+        left, right, top, bottom = self.container.bbox()
         # left, top, right, bottom
         _distance = [
             point.real - left,

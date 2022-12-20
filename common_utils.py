@@ -6,6 +6,7 @@ try:
     inkex.paths.Path().to_svgpathtools()
 except AttributeError:
     from inspect import getfile
+
     inkex.utils.errormsg(f"bad version of inkex lib {getfile(inkex.paths.Path)}")
 
 try:
@@ -15,6 +16,7 @@ try:
     from scipy.sparse.csgraph import minimum_spanning_tree
 except ImportError as err:
     import sys
+
     inkex.utils.errormsg(f"{err} on {sys.executable}")
 
 from collections import defaultdict
@@ -80,7 +82,7 @@ class BaseFillExtension(inkex.EffectExtension):
     def get_parent(self, node):
         if node is None:
             _doc_root = self.document.getroot()
-            #assert _doc_root
+            # assert _doc_root
             return _doc_root
         parent = node.getparent()
         return parent or self.document.getroot()
@@ -135,7 +137,7 @@ def transform_path_vector(pv, affine_t):
     return pv
 
 
-def find_orientation(in_path:Path) -> bool:
+def find_orientation(in_path: Path) -> bool:
     points = []
     if not in_path:
         return False
@@ -333,7 +335,7 @@ def stack_lines(lines: List[Path]) -> Tuple[List[Path], List[str]]:
         combined_lines.append(combined_line)
 
         labels.append(current_node)
-    for i,combined_line in enumerate(combined_lines):
+    for i, combined_line in enumerate(combined_lines):
         if not isinstance(combined_line, Path):
             combined_lines[i] = Path(*combined_line)
     return combined_lines, labels
@@ -358,7 +360,9 @@ def paths_are_degenerate(path1, path2):
 def intersect_over_all(line, path: Path, exit_early=False):
     all_intersections = []
     for i, segment in enumerate(path):
-        assert not isinstance(segment, Path), f"wrong object class for intersect, path is of type {type(segment)=}"
+        assert not isinstance(
+            segment, Path
+        ), f"wrong object class for intersect, path is of type {type(segment)=}"
 
         try:
             if paths_are_degenerate(line, segment):
@@ -502,7 +506,13 @@ def get_clockwise(last_point, curr_point, branches, counter=False):
 
 
 def is_segment_diagonal(segment: Line):
+    if (
+        segment.length() < TOLERANCE
+    ):  # we shouldn't care if degenerate paths are diagonal
+        return
     xmin, xmax, ymin, ymax = segment.bbox()
     diff_x = xmin - xmax
     diff_y = ymin - ymax
-    assert diff_x == 0 or diff_y == 0, f"diagonal segment: {segment}"
+    assert (abs(diff_x) > TOLERANCE) or (
+        abs(diff_y) > TOLERANCE
+    ), f"diagonal segment: {segment} diff_x {diff_x} {abs(diff_x) > TOLERANCE} diff_y {diff_y} {abs(diff_y) > TOLERANCE}"

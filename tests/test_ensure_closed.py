@@ -1,6 +1,7 @@
 import sys
 import os
 from os.path import dirname, abspath, join
+
 ROOT_DIR = dirname(dirname(abspath(__file__)))
 
 sys.path.append(ROOT_DIR)
@@ -11,6 +12,7 @@ from inkex.tester import TestCase
 
 class TestEnsureClosed(TestCase):
     effect_class = EnsureClosed
+
     def test_basic(self):
         target = "path_to_close"
         _file = "path_to_close.svg"

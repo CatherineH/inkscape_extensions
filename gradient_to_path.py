@@ -101,9 +101,13 @@ class GradientToPath(BaseFillExtension):
                     pattern_id = css_style_sheet["fill"].replace("url(#", "")[:-1]
             if pattern_id:
                 for stop in self._gradients[pattern_id].stops:
-                    style_sheet = self._style_sheets.get(stop.get('id'), {})
-                    stop.style = inkex.Style([('stop-color', style_sheet.get("stop-color", "none")),
-                                              ('stop-opacity', style_sheet.get("stop-opacity", "1.0"))])
+                    style_sheet = self._style_sheets.get(stop.get("id"), {})
+                    stop.style = inkex.Style(
+                        [
+                            ("stop-color", style_sheet.get("stop-color", "none")),
+                            ("stop-opacity", style_sheet.get("stop-opacity", "1.0")),
+                        ]
+                    )
 
             if not pattern_id:
                 pattern_id = get_fill_id(node)
@@ -154,7 +158,7 @@ class GradientToPath(BaseFillExtension):
                 line_colors.append(self.stops_dict[start_offset])
         end_offset = None
         bin_size = None
-        for i in range(int(num_lines ** 0.5), 1, -1):
+        for i in range(int(num_lines**0.5), 1, -1):
             if num_lines % i == 0:
                 bin_size = i
                 break

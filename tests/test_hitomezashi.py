@@ -89,7 +89,7 @@ class TestHitomezashi(TestCase):
         _file = "laptop_cover.svg"
         args = [
             f"--id={target}",
-            "--length=60",
+            "--length=50",
             "--fill=true",
             "--weight_x=-1",
             "--weight_y=-1",
@@ -131,7 +131,7 @@ class TestHitomezashi(TestCase):
         _file = "laptop_cover.svg"
         args = [
             f"--id={target}",
-            "--length=30",
+            "--length=10",
             "--gradient=true",
             "--fill=true",
             "--weight_x=0",
@@ -216,6 +216,7 @@ class TestHitomezashi(TestCase):
         _doc = inkex.elements._svg.SvgDocumentElement()
         _doc.set("viewBox", "0 0 300.26459 210.26459")
         effect.document._setroot(_doc)
+        print(self.data_file("simplify_graph.pkl"))
         with open(self.data_file("simplify_graph.pkl"), "rb") as fh:
             chain_graph = pickle.load(fh)
             effect.container = chain_graph["container"]
@@ -229,9 +230,9 @@ class TestHitomezashi(TestCase):
 
 
 if __name__ == "__main__":
-    # TestHitomezashi().test_large_fill()
-    # TestHitomezashi().test_large_gradient()
-    # TestHitomezashi().test_large()
+    #TestHitomezashi().test_large_fill()
+    #TestHitomezashi().test_large_gradient()
+    #TestHitomezashi().test_large()
     # TestHitomezashi().test_chain_graph()
     # TestHitomezashi().test_edges_in_between()
     TestHitomezashi().test_simplify_graph()

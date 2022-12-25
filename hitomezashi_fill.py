@@ -372,14 +372,16 @@ class HitomezashiFill(BaseFillExtension):
             msg = f"there are two many edges to fill. Consider using a shorter length piece or not filling the shape."
             inkex.utils.errormsg(msg)
             raise ValueError(msg)
-        # self.plot_graph(color="blue", label="simplified_graph", connected=False)
-        # debug_screen(self, "test_graph_simplify")
         self.audit_graph()
         # use the edge to make a loop that extends past the edges of the bbox add that to the stacks
-        loops: List[Path] = []
+        loops: List[Path] = self.edges #[]
 
+        """
         for edge in self.edges:
             loop = Path(*edge)
+            if loop.start == loop.end:
+                loops.append(loop)
+                continue
             # which edge are the end points nearest?
             start_edge = self.find_closest_edge(edge.start)
             end_edge = self.find_closest_edge(edge.end)
@@ -446,7 +448,7 @@ class HitomezashiFill(BaseFillExtension):
                 is_segment_diagonal(segment)
 
             loops.append(loop)
-        """
+        
         _dump = {"container": self.container, "edges": self.edges}
         with open(FOLDERNAME+"/chain_graph.pkl", "wb") as fh:
             pickle.dump(_dump, fh)
@@ -542,15 +544,15 @@ class HitomezashiFill(BaseFillExtension):
         while all_nodes:
             to_evaluate = all_nodes.pop()
             branches = list(self.graph[to_evaluate].keys())
-            if len(branches) > 2:
-                continue
-
-            if 0 < len(branches) < 2:
-                # nodes that don't have an input and an output can never be part of a cycle, so delete them
+            if len(branches) != 2: # segments must have only one input and output
                 continue
 
             start_i = branches[0]
             end_i = branches[1]
+            if start_i == to_evaluate or end_i == to_evaluate: # the edge is a loop, skip over reducing
+                continue
+            # 2 things to check
+            """
             if (
                 start_i == to_evaluate
                 or end_i == to_evaluate
@@ -560,6 +562,7 @@ class HitomezashiFill(BaseFillExtension):
             ):
                 # skip over reducing this one
                 continue
+            """
             if not isinstance(self.graph[start_i][to_evaluate], Path):
                 self.graph[start_i][to_evaluate] = Path(
                     self.graph[start_i][to_evaluate]
@@ -569,6 +572,12 @@ class HitomezashiFill(BaseFillExtension):
             segments = [*self.graph[start_i][to_evaluate]] + [
                 *self.graph[to_evaluate][end_i]
             ]
+            if start_i in self.graph[end_i]:
+                if not isinstance(self.graph[end_i][start_i], Path):
+                    segments += [*Path(self.graph[end_i][start_i])]
+                else:
+                    # the bridging section between start and end also needs to be added in order to close the loop
+                    segments += self.graph[end_i][start_i]
             print(
                 f"start {start_i} to {to_evaluate} point: {self.graph[start_i][to_evaluate]}"
             )
@@ -587,7 +596,7 @@ class HitomezashiFill(BaseFillExtension):
                         segments[i - 1].end = segment.start
                     else:
                         raise ValueError(
-                            f"chained together non-contiguous segments {segments[i-1].end} {segment.start}"
+                            f"chained together non-contiguous segments: {segments[i-1].end} {segment.start}"
                             f" {segments} while evaluating {to_evaluate}: {self.graph_locs[to_evaluate]}"
                         )
             segment = Path(*segments)
@@ -723,6 +732,7 @@ class HitomezashiFill(BaseFillExtension):
         if not self.options.fill:
 
             _ = [self.chop_shape(lines)]
+            self.audit_graph()
             self.simplify_graph()
             self.saved_solution = self.edges
             # self.saved_solution = self.chain_graph()
@@ -735,8 +745,8 @@ class HitomezashiFill(BaseFillExtension):
             self.saved_solution = self.chain_graph()
             # next: we need to stack and cut the paths out of each other
 
-            # combined_lines, labels = stack_lines(self.saved_solution)
-            combined_lines = [Path(*line) for line in self.saved_solution]
+            combined_lines, labels = stack_lines(self.saved_solution)
+            #combined_lines = [Path(*line) for line in self.saved_solution]
             color_fills = self.color_pattern(combined_lines)
             self.saved_solution = combined_lines
             logging.debug(f"labels {len(labels)} {labels}")

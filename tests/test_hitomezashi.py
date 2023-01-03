@@ -5,6 +5,9 @@ import pytest
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from hitomezashi_fill import HitomezashiFill, NearestEdge, Corner
+from hypothesis import given, settings
+import hypothesis.strategies as st
+
 
 from common_utils import debug_screen
 from inkex.tester import TestCase
@@ -228,11 +231,30 @@ class TestHitomezashi(TestCase):
             self.add_path_node(line.d(), style=f"fill:none;stroke:blue", id=f"loop{i}")
         effect.save(open(join(FOLDERNAME, f"test_simplify_graph.svg"), "wb"))
 
+    @settings(deadline=4000)
+    @given(st.tuples(st.lists(st.booleans()), st.lists(st.booleans())))
+    def test_graph_simplify(self, segments):
+        target = "rect31"
+        _file = "laptop_cover.svg"
+        args = [
+            f"--id={target}",
+            "--length=10",
+            "--fill=true",
+            "--weight_x=0",
+            "--weight_y=0",
+            self.data_file(_file),
+        ]
+        effect = self.effect_class()
+        effect.interactive_screen = False
+        effect.x_sequence = segments[0]
+        effect.y_sequence = segments[1]
+        effect.run(args)
+
 
 if __name__ == "__main__":
-    #TestHitomezashi().test_large_fill()
-    #TestHitomezashi().test_large_gradient()
-    #TestHitomezashi().test_large()
+    # TestHitomezashi().test_large_fill()
+    # TestHitomezashi().test_large_gradient()
+    # TestHitomezashi().test_large()
     # TestHitomezashi().test_chain_graph()
     # TestHitomezashi().test_edges_in_between()
-    TestHitomezashi().test_simplify_graph()
+    TestHitomezashi().test_graph_simplify()

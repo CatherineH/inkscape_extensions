@@ -197,13 +197,14 @@ def get_fill_id(node):
     return inkex_style["fill"].replace("url(#", "")[:-1]
 
 
-def debug_screen(effect, name=None):
+def debug_screen(effect, name=None, show=True):
     name = name or str(effect)
 
     filename = join(FOLDERNAME, f"debug_{name}.svg")
 
     effect.save(open(filename, "wb"))
-    subprocess.run(["inkview", filename])
+    if show:
+        subprocess.run(["inkview", filename])
 
 
 def make_stack_tree(lines, debug=False):
@@ -290,7 +291,7 @@ def make_stack_tree(lines, debug=False):
     # convert to a minimum spanning tree such that each line is just in one parent
     stack_tree = defaultdict(list)
     root_nodes = [i for i in range(len(lines))]
-    if not stack_matrix.any(): # no shape is inside another
+    if not stack_matrix.any():  # no shape is inside another
         return stack_tree, root_nodes
     stack_matrix = minimum_spanning_tree(stack_matrix, overwrite=True).toarray()
 

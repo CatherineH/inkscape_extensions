@@ -933,7 +933,7 @@ class HitomezashiFill(BaseFillExtension):
                 self.add_path_node(
                     Path(*line).d(), style=f"fill:none;stroke:blue", id=f"loop{i}"
                 )
-            segment_names = ".".join(self.x_sequence) + "_" + ".".join(self.y_sequence)
+            segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(f"{int(x)}" for x in self.y_sequence)
             debug_screen(
                 self, f"two_color_failure_{segment_names}", show=self.interactive_screen
             )

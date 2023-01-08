@@ -536,6 +536,7 @@ class HitomezashiFill(BaseFillExtension):
     def simplify_graph(self):
         """merge any nodes that have only two outputs into a path between the two.
         Keep doing this until there are no more nodes to evaluate"""
+        original_length = sum(path.length() for entry in self.graph.values() for path in entry.values())
         _dump = {
             "container": self.container,
             "graph": self.graph,
@@ -729,6 +730,10 @@ class HitomezashiFill(BaseFillExtension):
                         raise KeyError(
                             f" {node} -> {branch} exists in graph but {branch} -> {node} does not"
                         )
+        # the resulting graph after simplification should not be too much shorter than the original length
+        simplified_length = sum(path.length() for entry in self.graph.values() for path in entry.values())
+        if simplified_length <= original_length*0.9:
+            raise ValueError(f"simplified length {simplified_length} is too short compared to original length {original_length}")
 
         evaluated_edges = []
         for start_i in self.graph:
@@ -742,6 +747,8 @@ class HitomezashiFill(BaseFillExtension):
         logging.debug(
             f"after simplification the graph has {len(self.graph.keys())} nodes"
         )
+
+
 
     def audit_graph(self):
         # check whether there are points that are very close together

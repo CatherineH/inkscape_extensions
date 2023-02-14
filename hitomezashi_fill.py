@@ -75,7 +75,14 @@ class NearestEdge(Enum):
         if self.value == other.value:
             return []
         if self.is_opposite(other):
-            return [Corner(self.value), Corner(NearestEdge((self.value + 1) % 3).value)]
+            if self == self.top:
+                return [Corner(Corner.bottom_left), Corner(Corner.top_left)]
+            elif self == self.bottom:
+                return [Corner(Corner.top_right), Corner(Corner.bottom_right)]
+            elif self == self.left:
+                return [Corner(Corner.top_right), Corner(Corner.top_left)]
+            elif self == self.right:
+                return [Corner(Corner.bottom_left), Corner(Corner.bottom_right)]
         if (self == self.left and other == other.top) or (
             self == self.top and other == other.left
         ):  # 0, 1 -> 0
@@ -372,6 +379,7 @@ class HitomezashiFill(BaseFillExtension):
             # add the border lines at the end of the path
             _projected_edge = Line(start=edge.end, end=end_edge.project(edge.end, self.container))
             loop.append(_projected_edge)
+
             for corner_in_between in corners_in_between:
                 _edge_in_between = Line(
                         start=loop[-1].end,
@@ -386,7 +394,7 @@ class HitomezashiFill(BaseFillExtension):
                     self.add_path_node(self.container.d(), style="fill:none;stroke:gray", id="container")
                     self.add_marker(edge.end)
                     self.add_marker(edge.start, color="purple")
-                    print(f"{err}, corner in between was {corner_in_between} {corners_in_between}")
+                    print(f"{err}, corner in between was {corner_in_between} {corners_in_between} start_edge {start_edge} end_edge {end_edge}")
                     debug_screen(self, "corner_failure")
                     raise AssertionError(f"{err}, corner in between was {corner_in_between} {corners_in_between}")
                 loop.append(_edge_in_between)

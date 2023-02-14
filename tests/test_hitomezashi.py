@@ -192,7 +192,7 @@ class TestHitomezashi(TestCase):
 
 
 if __name__ == "__main__":
-    #TestHitomezashi().test_large_fill()
-    #TestHitomezashi().test_large_gradient()
-    #TestHitomezashi().test_large()
-    TestHitomezashi().test_chain_graph()
+    TestHitomezashi().test_large_fill()
+    TestHitomezashi().test_large_gradient()
+    TestHitomezashi().test_large()
+    #TestHitomezashi().test_chain_graph()

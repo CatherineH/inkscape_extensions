@@ -1,9 +1,13 @@
 import sys
 from os.path import dirname, abspath, join
 import pytest
+
 sys.path.append(dirname(dirname(abspath(__file__))))
 
-from hitomezashi_fill import HitomezashiFill
+from hitomezashi_fill import HitomezashiFill, NearestEdge, Corner
+from hypothesis import given, settings
+import hypothesis.strategies as st
+
 
 from common_utils import debug_screen
 from inkex.tester import TestCase
@@ -71,7 +75,7 @@ class TestHitomezashi(TestCase):
         args = [
             f"--id={target}",
             "--length=10",
-            "--fill=true",
+            "--gradient=true",
             "--weight_x=0",
             "--weight_y=0",
             self.data_file(_file),
@@ -88,7 +92,7 @@ class TestHitomezashi(TestCase):
         _file = "laptop_cover.svg"
         args = [
             f"--id={target}",
-            "--length=60",
+            "--length=50",
             "--fill=true",
             "--weight_x=-1",
             "--weight_y=-1",
@@ -130,7 +134,7 @@ class TestHitomezashi(TestCase):
         _file = "laptop_cover.svg"
         args = [
             f"--id={target}",
-            "--length=30",
+            "--length=10",
             "--gradient=true",
             "--fill=true",
             "--weight_x=0",
@@ -182,17 +186,76 @@ class TestHitomezashi(TestCase):
         # confirm two things with all loops
         # 1. the loop is closed
         # 2. the loop does not contain lines at an angle
-        for i,loop in enumerate(loops):
+        for i, loop in enumerate(loops):
             assert loop.start == loop.end
             for segment in loop:
                 xmin, xmax, ymin, ymax = segment.bbox()
-                diff_x = xmin-xmax
-                diff_y = ymin-ymax
-                assert diff_x == 0 or diff_y == 0, f"edge: {effect.edges[i].d()} loop: {loop.d()} - bbox {diff_x} {diff_y}"
+                diff_x = xmin - xmax
+                diff_y = ymin - ymax
+                assert (
+                    diff_x == 0 or diff_y == 0
+                ), f"edge: {effect.edges[i].d()} loop: {loop.d()} - bbox {diff_x} {diff_y}"
+
+    def test_edges_in_between(self):
+        start_edge = NearestEdge.top
+        end_edge = NearestEdge.bottom
+        corners_in_between = start_edge.corners_between(end_edge)
+        assert corners_in_between == [
+            Corner.top_left,
+            Corner.bottom_left,
+        ], f"corners in between {corners_in_between}"
+        start_edge = NearestEdge.bottom
+        end_edge = NearestEdge.top
+        corners_in_between = start_edge.corners_between(end_edge)
+        assert corners_in_between == [
+            Corner.bottom_right,
+            Corner.top_right,
+        ], f"corners in between {corners_in_between}"
+
+    def test_simplify_graph(self):
+        effect = self.effect_class()
+        effect.options.length = 30
+        effect.document = xml.etree.ElementTree.ElementTree()
+        _doc = inkex.elements._svg.SvgDocumentElement()
+        _doc.set("viewBox", "0 0 300.26459 210.26459")
+        effect.document._setroot(_doc)
+        print(self.data_file("simplify_graph.pkl"))
+        with open(self.data_file("simplify_graph.pkl"), "rb") as fh:
+            chain_graph = pickle.load(fh)
+            effect.container = chain_graph["container"]
+            effect.graph = chain_graph["graph"]
+            effect.graph_locs = chain_graph["graph_locs"]
+        effect.plot_graph()
+        effect.simplify_graph()
+        for i, line in enumerate(effect.edges):
+            self.add_path_node(line.d(), style=f"fill:none;stroke:blue", id=f"loop{i}")
+        effect.save(open(join(FOLDERNAME, f"test_simplify_graph.svg"), "wb"))
+
+    @settings(deadline=4000)
+    @given(st.tuples(st.lists(st.booleans()), st.lists(st.booleans())))
+    def test_graph_simplify(self, segments):
+        target = "rect31"
+        _file = "laptop_cover.svg"
+        args = [
+            f"--id={target}",
+            "--length=60",
+            "--fill=true",
+            "--weight_x=0",
+            "--weight_y=0",
+            self.data_file(_file),
+        ]
+        effect = self.effect_class()
+        effect.interactive_screen = False
+        effect.x_sequence = segments[0]
+        effect.y_sequence = segments[1]
+        effect.run(args)
 
 
 if __name__ == "__main__":
+
     TestHitomezashi().test_large_fill()
-    TestHitomezashi().test_large_gradient()
-    TestHitomezashi().test_large()
-    #TestHitomezashi().test_chain_graph()
+    # TestHitomezashi().test_large_gradient()
+    # TestHitomezashi().test_large()
+    # TestHitomezashi().test_chain_graph()
+    # TestHitomezashi().test_edges_in_between()
+    TestHitomezashi().test_graph_simplify()

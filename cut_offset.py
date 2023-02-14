@@ -5,7 +5,9 @@ from common_utils import append_verify, BaseFillExtension
 
 class CutOffset(BaseFillExtension):
     def __init__(self):
-        BaseFillExtension.__init__(self, self.cut_target, init_handle=self.find_offset_target)
+        BaseFillExtension.__init__(
+            self, self.cut_target, init_handle=self.find_offset_target
+        )
         self.offset_target = inkex.Path()
 
     def add_arguments(self, pars):
@@ -25,7 +27,11 @@ class CutOffset(BaseFillExtension):
         print(f"offset_target {self.offset_target}")
 
     def cut_target(self, node):
-        self.add_path_node(str(node.path.difference(self.offset_target)), style=node.get("style"), id=node.get("id")+"-cut")
+        self.add_path_node(
+            str(node.path.difference(self.offset_target)),
+            style=node.get("style"),
+            id=node.get("id") + "-cut",
+        )
 
 
 if __name__ == "__main__":

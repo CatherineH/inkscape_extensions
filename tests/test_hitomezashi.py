@@ -238,7 +238,7 @@ class TestHitomezashi(TestCase):
         _file = "laptop_cover.svg"
         args = [
             f"--id={target}",
-            "--length=10",
+            "--length=60",
             "--fill=true",
             "--weight_x=0",
             "--weight_y=0",

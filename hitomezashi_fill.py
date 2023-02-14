@@ -536,6 +536,7 @@ class HitomezashiFill(BaseFillExtension):
     def simplify_graph(self):
         """merge any nodes that have only two outputs into a path between the two.
         Keep doing this until there are no more nodes to evaluate"""
+        self.plot_graph(color="blue")
         original_length = sum(path.length() for entry in self.graph.values() for path in entry.values())
         _dump = {
             "container": self.container,
@@ -567,7 +568,8 @@ class HitomezashiFill(BaseFillExtension):
                 outside_edge = [*self.graph[start_outside][to_evaluate]] + [
                     *self.graph[to_evaluate][end_outside]
                 ]
-                outside_edge = Path(*outside_edge)
+                if not isinstance(outside_edge, Path):
+                    outside_edge = Path(*outside_edge)
                 # self.edges.append(segment)
                 self.graph[start_outside][end_outside] = outside_edge
                 self.graph[end_outside][start_outside] = outside_edge.reversed()
@@ -610,6 +612,14 @@ class HitomezashiFill(BaseFillExtension):
                     ):
                         segments[i - 1].end = segment.start
                     else:
+                        segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(
+                            f"{int(x)}" for x in self.y_sequence)
+                        self.plot_graph()
+                        self.add_marker(segments[i-1].end, color="red")
+                        self.add_marker(segment.start, color="blue")
+                        self.add_marker(self.graph_locs[to_evaluate], color="orange")
+                        debug_screen(self, f"non_contiguous_segments_{segment_names}", show=False)
+
                         raise ValueError(
                             f"chained together non-contiguous segments: {segments[i-1].end} {segment.start}"
                             f" {segments} while evaluating {to_evaluate}: {self.graph_locs[to_evaluate]}"
@@ -733,6 +743,10 @@ class HitomezashiFill(BaseFillExtension):
         # the resulting graph after simplification should not be too much shorter than the original length
         simplified_length = sum(path.length() for entry in self.graph.values() for path in entry.values())
         if simplified_length <= original_length*0.9:
+            segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(
+                f"{int(x)}" for x in self.y_sequence)
+            self.plot_graph()
+            debug_screen(self, f"over_simplification_{segment_names}", show=False)
             raise ValueError(f"simplified length {simplified_length} is too short compared to original length {original_length}")
 
         evaluated_edges = []

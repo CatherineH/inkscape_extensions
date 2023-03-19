@@ -132,6 +132,7 @@ class GraphType(object):
         self._internal = defaultdict(dict)
         self.graph_locs = []
         self.length = length
+        self.history = defaultdict(list)
 
     def snap_nodes(self, node):
         diffs = {}
@@ -151,8 +152,8 @@ class GraphType(object):
         line_j = self.snap_nodes(end)
 
         self.set(line_i, line_j, Line(deepcopy(start), deepcopy(end)))
-        is_segment_diagonal(self.get(line_i,line_j))
-        is_segment_diagonal(self.get(line_j,line_i))
+        is_segment_diagonal(self.get(line_i, line_j))
+        is_segment_diagonal(self.get(line_j, line_i))
         return line_i, line_j
 
     def set(self, i, j, values):
@@ -162,13 +163,25 @@ class GraphType(object):
             values = Path(values)
         if not isinstance(values, Path):
             raise ValueError(f"not sure how to convert: {type(values)}")
-        print(f"adding connection {i} {j} {values.start}, {values.end}")
+        self.history[i].append((j, values))
+        self.history[j].append((i, values.reversed()))
         self._internal[i][j] = values
         self._internal[j][i] = values.reversed()
+
+    def delete(self, i, j):
+        del self._internal[i][j]
+        del self._internal[j][i]
+
+    def delete_node(self, i):
+        del self._internal[i]
 
     def get(self, i, j):
         assert isinstance(self._internal[i][j], Path)
         return self._internal[i][j]
+
+    def confirm(self, i, j):
+        assert isinstance(self._internal[i][j], Path)
+        assert isinstance(self._internal[j][i], Path)
 
     def get_segments(self):
         return [path for entry in self._internal.values() for path in entry.values()]
@@ -179,7 +192,20 @@ class GraphType(object):
     def branches(self, graph_loc):
         return list(self._internal[graph_loc].keys())
 
+    def audit_graph(self):
+        # check whether there are points that are very close together
+        nodes = self._internal.keys()
+        for i, node_i in enumerate(nodes):
+            for j, node_j in enumerate(nodes):
+                if i == j:
+                    continue
+                diff = abs(self.graph_locs[node_i] - self.graph_locs[node_j])
+                if diff < TOLERANCE * self.length:
+                    logging.debug(f"nodes {node_j} and {node_i} are only {diff} apart")
 
+        for start_i in self._internal.keys():
+            for end_i in self.branches(start_i):
+                self.confirm(start_i, end_i)
 
 
 class HitomezashiFill(BaseFillExtension):
@@ -196,7 +222,6 @@ class HitomezashiFill(BaseFillExtension):
         # build a graph of which edge points connect where
         self.graph = None
         self.edges = []
-        self.graph_locs = []
         self.edges_to_visit = []
         self.visited_edges = []
         self.chained_lines = []
@@ -253,6 +278,8 @@ class HitomezashiFill(BaseFillExtension):
 
     def plot_graph(self, color="gray", label="graph", connected=True):
         # dump the graph
+        # connected does not plot the graph correctly
+        connected = False
         if connected:
             all_graph_segments = self.graph.get_segments()
             self.add_path_node(
@@ -265,7 +292,7 @@ class HitomezashiFill(BaseFillExtension):
                 for end_i in self.graph.branches(start_i):
                     try:
                         self.add_path_node(
-                            self.graph.get(start_i,end_i).d(),
+                            self.graph.get(start_i, end_i).d(),
                             f"stroke:{color};stroke-width:2;fill:none",
                             f"{label}-{start_i}-{end_i}",
                         )
@@ -402,7 +429,9 @@ class HitomezashiFill(BaseFillExtension):
         # remove the ones already on the line, but not the first point
         branches = [point for point in branches if point not in chained_line[1:]]
         branches.sort(
-            key=lambda x: abs(self.graph_locs[x] - self.graph_locs[chained_line[0]])
+            key=lambda x: abs(
+                self.graph.graph_locs[x] - self.graph.graph_locs[chained_line[0]]
+            )
         )
 
         for branch in branches:
@@ -414,7 +443,6 @@ class HitomezashiFill(BaseFillExtension):
         return None
 
     def chain_graph(self) -> List[Path]:
-        # self.plot_graph(connected=False)
         self.simplify_graph()
         if len(self.graph.keys()) > 500:
             msg = f"there are two many edges to fill. Consider using a shorter length piece or not filling the shape."
@@ -569,12 +597,16 @@ class HitomezashiFill(BaseFillExtension):
     def simplify_graph(self):
         """merge any nodes that have only two outputs into a path between the two.
         Keep doing this until there are no more nodes to evaluate"""
-        self.plot_graph(color="blue")
         original_length = sum(path.length() for path in self.graph.get_segments())
+        assert 1 in self.outline_nodes
+        assert 34 in self.outline_nodes
+        assert 35 in self.outline_nodes
+        assert 36 in self.outline_nodes
+        assert 7 not in self.outline_nodes
         _dump = {
             "container": self.container,
             "graph": self.graph,
-            "graph_locs": self.graph_locs,
+            "graph_locs": self.graph.graph_locs,
         }
         with open(FOLDERNAME + "/simplify_graph.pkl", "wb") as fh:
             pickle.dump(_dump, fh)
@@ -614,11 +646,14 @@ class HitomezashiFill(BaseFillExtension):
             ):  # the edge is a loop, skip over reducing
                 continue
 
-            segments = Path(*self.graph.get(start_i,to_evaluate),*self.graph.get(to_evaluate,end_i))
+            segments = Path(
+                *self.graph.get(start_i, to_evaluate),
+                *self.graph.get(to_evaluate, end_i),
+            )
             if start_i in self.graph.branches(end_i):
                 print(f"closing loop for {start_i} {end_i}")
                 # the bridging section between start and end also needs to be added in order to close the loop
-                segments += self.graph.get(end_i,start_i)
+                segments += self.graph.get(end_i, start_i)
             print(
                 f"start {start_i} to {to_evaluate} point: {self.graph.get(start_i,to_evaluate)}"
             )
@@ -636,30 +671,34 @@ class HitomezashiFill(BaseFillExtension):
                     ):
                         segments[i - 1].end = segment.start
                     else:
-                        segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(
-                            f"{int(x)}" for x in self.y_sequence)
+                        segment_names = (
+                            ".".join(f"{int(x)}" for x in self.x_sequence)
+                            + "_"
+                            + ".".join(f"{int(x)}" for x in self.y_sequence)
+                        )
                         self.plot_graph(connected=False)
-                        self.add_marker(segments[i-1].end, color="red")
+                        self.add_marker(segments[i - 1].end, color="red")
                         self.add_marker(segment.start, color="blue")
-                        self.add_marker(self.graph_locs[to_evaluate], color="orange")
-                        debug_screen(self, f"non_contiguous_segments_{segment_names}", show=False)
-
+                        self.add_marker(
+                            self.graph.graph_locs[to_evaluate], color="orange"
+                        )
+                        debug_screen(
+                            self, f"non_contiguous_segments_{segment_names}", show=False
+                        )
+                        history = "\n".join(
+                            str(entry) for entry in self.graph.history[to_evaluate]
+                        )
                         raise ValueError(
                             f"chained together non-contiguous segments: {segments[i-1].end} {segment.start}"
-                            f" {segments} while evaluating {to_evaluate}: {self.graph_locs[to_evaluate]}"
+                            f" {segments} while evaluating {to_evaluate}: {self.graph.graph_locs[to_evaluate]} {history}"
                         )
             segment = Path(*segments)
             # self.edges.append(segment)
-            is_segment_diagonal(segment)
-            is_segment_diagonal(segment.reversed())
-            self.graph[start_i][end_i] = segment
-            self.graph[end_i][start_i] = segment.reversed()
-            del self.graph[to_evaluate][start_i]
-            del self.graph[to_evaluate][end_i]
-            del self.graph[start_i][to_evaluate]
-            del self.graph[end_i][to_evaluate]
-            assert self.graph[start_i][end_i]
-            assert self.graph[end_i][start_i]
+            self.graph.set(start_i, end_i, segment)
+            self.graph.set(end_i, start_i, segment.reversed())
+            self.graph.delete(to_evaluate, start_i)
+            self.graph.delete(to_evaluate, end_i)
+            self.graph.confirm(start_i, end_i)
 
         # second round - join edges
         all_nodes = deepcopy(self.graph.keys())
@@ -669,7 +708,7 @@ class HitomezashiFill(BaseFillExtension):
 
             branches = self.graph.branches(to_evaluate)
             if len(branches) == 0:
-                del self.graph[to_evaluate]
+                self.graph.delete_node(to_evaluate)
 
             if len(branches) <= 1:  # skip over closed loops
                 continue
@@ -702,16 +741,10 @@ class HitomezashiFill(BaseFillExtension):
                 self.graph[end_outside][start_outside] = outside_edge.reversed()
             for remaining_branch in remaining_branches:
                 print(f"removing {remaining_branch} -> {to_evaluate}")
-                del self.graph[remaining_branch][to_evaluate]
+                self.graph.delete(remaining_branch, to_evaluate)
 
-            if not isinstance(self.graph[start_i][to_evaluate], Path):
-                self.graph[start_i][to_evaluate] = Path(
-                    self.graph[start_i][to_evaluate]
-                )
-            if not isinstance(self.graph[to_evaluate][end_i], Path):
-                self.graph[to_evaluate][end_i] = Path(self.graph[to_evaluate][end_i])
-            segments = [*self.graph[start_i][to_evaluate]] + [
-                *self.graph[to_evaluate][end_i]
+            segments = [*self.graph.get(start_i, to_evaluate)] + [
+                *self.graph.get(to_evaluate, end_i)
             ]
             """
             if start_i in self.graph[end_i]:
@@ -724,10 +757,10 @@ class HitomezashiFill(BaseFillExtension):
                 print(f"adding the bridging segment {start_i} {end_i} {self.graph[end_i][start_i]}")
             """
             print(
-                f"start {start_i} to {to_evaluate} point: {self.graph[start_i][to_evaluate]}"
+                f"start {start_i} to {to_evaluate} point: {self.graph.get(start_i,to_evaluate)}"
             )
             print(
-                f"end {end_i} to {to_evaluate} point: {self.graph[to_evaluate][end_i]}"
+                f"end {end_i} to {to_evaluate} point: {self.graph.get(to_evaluate,end_i)}"
             )
             # confirm that the segments are contiguous
             for i, segment in enumerate(segments):
@@ -742,38 +775,30 @@ class HitomezashiFill(BaseFillExtension):
                     else:
                         raise ValueError(
                             f"chained together non-contiguous segments: {segments[i-1].end} {segment.start}"
-                            f" {segments} while evaluating {to_evaluate}: {self.graph_locs[to_evaluate]}"
+                            f" {segments} while evaluating {to_evaluate}: {self.graph.graph_locs[to_evaluate]}"
                         )
-            segment = Path(*segments)
             # self.edges.append(segment)
-            self.graph[start_i][end_i] = segment
-            self.graph[end_i][start_i] = segment.reversed()
-            print(f"removing {to_evaluate}")
-
-            del self.graph[to_evaluate]
-            print(f"removing {start_i} -> {to_evaluate}")
-            del self.graph[start_i][to_evaluate]
-            print(f"removing {end_i} -> {to_evaluate}")
-            del self.graph[end_i][to_evaluate]
-            assert self.graph[start_i][end_i]
-            assert self.graph[end_i][start_i]
+            self.graph.set(start_i, end_i, segments)
+            self.graph.delete(start_i, to_evaluate)
+            self.graph.delete(end_i, to_evaluate)
+            self.graph.confirm(start_i, end_i)
             # confirm that we haven't destroyed the graph
-            for node in self.graph.keys():
-                for branch in self.graph.branches(node):
-                    try:
-                        self.graph[branch][node]
-                    except KeyError as e:
-                        raise KeyError(
-                            f" {node} -> {branch} exists in graph but {branch} -> {node} does not"
-                        )
-        # the resulting graph after simplification should not be too much shorter than the original length
-        simplified_length = sum(path.length() for entry in self.graph.values() for path in entry.values())
-        if simplified_length <= original_length*0.9:
-            segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(
-                f"{int(x)}" for x in self.y_sequence)
-            self.plot_graph()
-            debug_screen(self, f"over_simplification_{segment_names}", show=False)
-            raise ValueError(f"simplified length {simplified_length} is too short compared to original length {original_length}")
+            self.graph.audit_graph()
+            # the resulting graph after simplification should not be too much shorter than the original length
+            simplified_length = sum(
+                [path.length() for path in self.graph.get_segments()]
+            )
+            if simplified_length <= original_length * 0.9:
+                segment_names = (
+                    ".".join(f"{int(x)}" for x in self.x_sequence)
+                    + "_"
+                    + ".".join(f"{int(x)}" for x in self.y_sequence)
+                )
+                self.plot_graph(label="oversimp", color="orange")
+                debug_screen(self, f"over_simplification_{segment_names}", show=False)
+                raise ValueError(
+                    f"simplified length {simplified_length} is too short compared to original length {original_length}"
+                )
 
         evaluated_edges = []
         for start_i in self.graph:
@@ -784,43 +809,7 @@ class HitomezashiFill(BaseFillExtension):
                         _path = Path(_path)
                     self.edges.append(_path)
                     evaluated_edges.append({start_i, end_i})
-        logging.debug(
-            f"after simplification the graph has {self.graph.keys()} nodes"
-        )
-
-    def audit_graph(self):
-        # check whether there are points that are very close together
-        nodes = self.graph.keys()
-        for i, node_i in enumerate(nodes):
-            for j, node_j in enumerate(nodes):
-                if i == j:
-                    continue
-                diff = abs(self.graph_locs[node_i] - self.graph_locs[node_j])
-                if diff < TOLERANCE * self.options.length:
-                    logging.debug(f"nodes {node_j} and {node_i} are only {diff} apart")
-
-        def out_of_bounds(node_i):
-            node = self.graph_locs[node_i]
-            return (
-                node.real > self.xmax + TOLERANCE
-                or node.real < self.xmin - TOLERANCE
-                or node.imag > self.ymax + TOLERANCE
-                or node.imag < self.ymin - TOLERANCE
-            )
-
-        # remove any points that are outside of the bbox from the graph
-        for node in nodes:
-            if not out_of_bounds(node):
-                continue
-            branches = self.graph.branches(node)
-            for branch in branches:
-                del self.graph[branch][node]
-            del self.graph[node]
-
-        for start_i in self.graph.keys():
-            for end_i in self.graph.branches(start_i):
-                if not isinstance(self.graph[start_i][end_i], Path):
-                    self.graph[start_i][end_i] = Path(self.graph[start_i][end_i])
+        logging.debug(f"after simplification the graph has {self.graph.keys()} nodes")
 
     def hitomezashi_fill(self, node):
         # greedy algorithm: make a Hitomezashi fill that covers the entire bounding box of the shape,
@@ -843,6 +832,7 @@ class HitomezashiFill(BaseFillExtension):
         num_y = int(self.height / self.options.length)
         if self.height / self.options.length % 1:
             num_y += 1
+        true_x_sequence = []
         for x_i in range(num_x):
             x_coord = x_i * self.options.length + self.xmin
             if x_coord == self.xmin:
@@ -854,6 +844,7 @@ class HitomezashiFill(BaseFillExtension):
                 odd_even_y = random() > self.options.weight_x
             else:
                 odd_even_y = random() > x_i / num_x
+            true_x_sequence.append(odd_even_y)
             for y_i in range(num_y):
                 if y_i % 2 == odd_even_y:
                     continue
@@ -874,6 +865,7 @@ class HitomezashiFill(BaseFillExtension):
                 lines.append(Line(start, end))
                 assert start != end
         # generate horizontal lines
+        true_y_sequence = []
         for y_i in range(num_y):
             y_coord = y_i * self.options.length + self.ymin
             if self.y_sequence:
@@ -882,6 +874,8 @@ class HitomezashiFill(BaseFillExtension):
                 odd_even_y = random() > self.options.weight_y
             else:
                 odd_even_y = random() > y_i / num_y
+            true_y_sequence.append(odd_even_y)
+
             for x_i in range(num_x):
                 if x_i % 2 == odd_even_y:
                     continue
@@ -901,7 +895,6 @@ class HitomezashiFill(BaseFillExtension):
                 assert start != end
         labels = []
         if not self.options.fill:
-
             _ = [self.chop_shape(lines)]
             self.audit_graph()
             self.simplify_graph()
@@ -910,18 +903,53 @@ class HitomezashiFill(BaseFillExtension):
             # self.saved_solution = [line.d() for line in lines]
             labels = [i for i in range(len(self.saved_solution))]
         else:
+            lines = []
+            curr_color = True
+            start_rows = []
+            print(self.x_sequence, self.y_sequence)
+            for y_i in range(num_y):
+
+                for x_i in range(num_x):
+                    # determine whether there's a line between this square and the preceeding
+                    if x_i == 0 and y_i != 0:
+                        # was there a line between y_i and y_i-1, yes, if self.y_sequences was odd
+                        if true_y_sequence[y_i-1] == 1:
+                            curr_color = not start_rows[y_i-1]
+                        else:
+                            curr_color = start_rows[y_i - 1]
+                    elif x_i != 0:
+                        # was there a line between x_i and x_i -1 ? yes, if y_i is even and self.x_sequences[x_i-i] was odd
+                        # yes, if y_i is odd and self.x_sequences[x_i - 1] was even
+                        if not (y_i % 2) and true_x_sequence[x_i-1]:
+                            curr_color = not curr_color
+                        elif y_i % 2 and not true_x_sequence[x_i - 1]:
+                            curr_color = not curr_color
+
+                    if not curr_color:
+                        continue
+                    y_coord = y_i * self.options.length + self.ymin
+                    x_coord = x_i * self.options.length + self.xmin
+                    diff = TOLERANCE * self.options.length
+                    start_a = x_coord + y_coord * 1j
+                    end_a = (x_coord + self.options.length) + y_coord * 1j
+                    end_b = (x_coord + self.options.length) + (y_coord +  + self.options.length) * 1j
+                    end_c = x_coord  + (y_coord +  + self.options.length) * 1j
+                    lines.append(Path(Line(start_a, end_a), Line(end_a, end_b), Line(end_b, end_c), Line(end_c, start_a)))
+                start_rows.append(curr_color)
+            color_fills = ["red" for _ in lines]
+            self.saved_solution = lines
+            """ chaining graph solution
             lines = self.chop_shape(lines)
-            # self.plot_graph(connected=False)
-            # self.saved_solution = [lines]#[line for line in [lines]]
+            self.plot_graph(connected=False)
             self.saved_solution = self.chain_graph()
             # next: we need to stack and cut the paths out of each other
 
             combined_lines, labels = stack_lines(self.saved_solution)
-            # combined_lines = [Path(*line) for line in self.saved_solution]
             color_fills = self.color_pattern(combined_lines)
             self.saved_solution = combined_lines
             logging.debug(f"labels {len(labels)} {labels}")
             logging.debug(f"combined lines {len(combined_lines)}")
+            """
         for i, chained_line in enumerate(self.saved_solution):
             if chained_line == "":
                 raise ValueError(f"got empty chained_path! {i} {chained_line}")
@@ -934,7 +962,7 @@ class HitomezashiFill(BaseFillExtension):
             )
             pattern_style = node.get("style")
             if self.options.fill:
-                color = "white" if color_fills[i] else "red"
+                color = "red" if color_fills[i] else "white"
                 pattern_style = pattern_style.replace("fill:none", f"fill:{color}")
                 if "fill" not in pattern_style:
                     pattern_style += f";fill:{color}"
@@ -972,7 +1000,11 @@ class HitomezashiFill(BaseFillExtension):
                 self.add_path_node(
                     Path(*line).d(), style=f"fill:none;stroke:blue", id=f"loop{i}"
                 )
-            segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(f"{int(x)}" for x in self.y_sequence)
+            segment_names = (
+                ".".join(f"{int(x)}" for x in self.x_sequence)
+                + "_"
+                + ".".join(f"{int(x)}" for x in self.y_sequence)
+            )
             debug_screen(
                 self, f"two_color_failure_{segment_names}", show=self.interactive_screen
             )

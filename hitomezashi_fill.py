@@ -746,16 +746,7 @@ class HitomezashiFill(BaseFillExtension):
             segments = [*self.graph.get(start_i, to_evaluate)] + [
                 *self.graph.get(to_evaluate, end_i)
             ]
-            """
-            if start_i in self.graph[end_i]:
 
-                if not isinstance(self.graph[end_i][start_i], Path):
-                    segments += [*Path(self.graph[end_i][start_i])]
-                else:
-                    # the bridging section between start and end also needs to be added in order to close the loop
-                    segments += self.graph[end_i][start_i]
-                print(f"adding the bridging segment {start_i} {end_i} {self.graph[end_i][start_i]}")
-            """
             print(
                 f"start {start_i} to {to_evaluate} point: {self.graph.get(start_i,to_evaluate)}"
             )
@@ -931,13 +922,37 @@ class HitomezashiFill(BaseFillExtension):
                     x_coord = x_i * self.options.length + self.xmin
                     diff = TOLERANCE * self.options.length
                     start_a = x_coord + y_coord * 1j
-                    end_a = (x_coord + self.options.length) + y_coord * 1j
-                    end_b = (x_coord + self.options.length) + (y_coord +  + self.options.length) * 1j
-                    end_c = x_coord  + (y_coord +  + self.options.length) * 1j
+                    end_a = (x_coord + self.options.length+diff) + y_coord * 1j
+                    end_b = (x_coord + self.options.length+diff) + (y_coord + diff + self.options.length) * 1j
+                    end_c = x_coord  + (y_coord + diff + self.options.length) * 1j
                     lines.append(Path(Line(start_a, end_a), Line(end_a, end_b), Line(end_b, end_c), Line(end_c, start_a)))
                 start_rows.append(curr_color)
-            color_fills = ["red" for _ in lines]
-            self.saved_solution = lines
+            # combine the lines?
+            #combined_lines = inkex.paths.Path().from_svgpathtools(lines.pop())
+            unmergable = []
+            while lines:
+                to_combine_line1 = lines.pop()
+                if not lines:
+                    combined_lines = to_combine_line1
+                to_combine_line2 = lines.pop()
+                if not isinstance(to_combine_line1, inkex.paths.Path):
+                    to_combine_line1 = inkex.paths.Path().from_svgpathtools(to_combine_line1)
+                if not isinstance(to_combine_line2, inkex.paths.Path):
+                    to_combine_line2 = inkex.paths.Path().from_svgpathtools(to_combine_line2)
+
+                try:
+                    combined_lines = to_combine_line1.union(to_combine_line2)
+                    lines.insert(0, combined_lines)
+                    print("combined lines", combined_lines)
+                except Exception as err:
+                    self.add_path_node(to_combine_line1.d(), style="fill:red", id="to-merge")
+                    self.add_path_node(to_combine_line2.d(), style="fill:blue", id="merged-path")
+                    debug_screen(self, name="merge_failure", show=False)
+                    unmergable.append(to_combine_line)
+                    continue
+
+            self.saved_solution = [combined_lines.to_svgpathtools()]
+            color_fills = ["red" for _ in self.saved_solution]
             """ chaining graph solution
             lines = self.chop_shape(lines)
             self.plot_graph(connected=False)

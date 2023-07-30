@@ -165,11 +165,25 @@ class TestHitomezashi(TestCase):
                 previous_letter = path_piece.letter
             """
 
-        # new_path = effect.svg.getElementById(f"hitomezashi-{target}-0").path
-        # print("calling debug screen now")
-        # debug_screen(effect, "test_large_gradient")
         effect.save(open(join(FOLDERNAME, f"test_large_gradient.svg"), "wb"))
-        # assert new_path
+
+    def test_large_gradient_triangle(self):
+        target = "rect31"
+        _file = "laptop_cover.svg"
+        args = [
+            f"--id={target}",
+            "--length=10",
+            "--gradient=true",
+            "--fill=true",
+            "--weight_x=0",
+            "--weight_y=0",
+            "--triangle=true",
+            self.data_file(_file),
+        ]
+        effect = self.effect_class()
+
+        effect.run(args)
+        effect.save(open(join(FOLDERNAME, f"test_large_gradient_triangle.svg"), "wb"))
 
     def test_chain_graph(self):
         effect = self.effect_class()
@@ -253,8 +267,8 @@ class TestHitomezashi(TestCase):
 
 if __name__ == "__main__":
     # TestHitomezashi().test_large_fill()
-    # TestHitomezashi().test_large_gradient()
+    TestHitomezashi().test_large_gradient_triangle()
     # TestHitomezashi().test_large()
     # TestHitomezashi().test_chain_graph()
     # TestHitomezashi().test_edges_in_between()
-    TestHitomezashi().test_graph_simplify()
+    # TestHitomezashi().test_graph_simplify()

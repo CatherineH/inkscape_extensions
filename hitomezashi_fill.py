@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import logging
+import math
 from collections import defaultdict
 from typing import List
 
@@ -171,6 +172,9 @@ class HitomezashiFill(BaseFillExtension):
         )
         pars.add_argument(
             "--fill", type=str, default="false", help="fill the stitch shapes"
+        )
+        pars.add_argument(
+            "--triangle", type=str, default="false", help="fill the stitch shapes"
         )
 
     def add_chained_line(self, chained_line, label="chained-line", color="red"):
@@ -537,7 +541,9 @@ class HitomezashiFill(BaseFillExtension):
         """merge any nodes that have only two outputs into a path between the two.
         Keep doing this until there are no more nodes to evaluate"""
         self.plot_graph(color="blue")
-        original_length = sum(path.length() for entry in self.graph.values() for path in entry.values())
+        original_length = sum(
+            path.length() for entry in self.graph.values() for path in entry.values()
+        )
         _dump = {
             "container": self.container,
             "graph": self.graph,
@@ -612,13 +618,18 @@ class HitomezashiFill(BaseFillExtension):
                     ):
                         segments[i - 1].end = segment.start
                     else:
-                        segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(
-                            f"{int(x)}" for x in self.y_sequence)
+                        segment_names = (
+                            ".".join(f"{int(x)}" for x in self.x_sequence)
+                            + "_"
+                            + ".".join(f"{int(x)}" for x in self.y_sequence)
+                        )
                         self.plot_graph()
-                        self.add_marker(segments[i-1].end, color="red")
+                        self.add_marker(segments[i - 1].end, color="red")
                         self.add_marker(segment.start, color="blue")
                         self.add_marker(self.graph_locs[to_evaluate], color="orange")
-                        debug_screen(self, f"non_contiguous_segments_{segment_names}", show=False)
+                        debug_screen(
+                            self, f"non_contiguous_segments_{segment_names}", show=False
+                        )
 
                         raise ValueError(
                             f"chained together non-contiguous segments: {segments[i-1].end} {segment.start}"
@@ -741,13 +752,20 @@ class HitomezashiFill(BaseFillExtension):
                             f" {node} -> {branch} exists in graph but {branch} -> {node} does not"
                         )
         # the resulting graph after simplification should not be too much shorter than the original length
-        simplified_length = sum(path.length() for entry in self.graph.values() for path in entry.values())
-        if simplified_length <= original_length*0.9:
-            segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(
-                f"{int(x)}" for x in self.y_sequence)
+        simplified_length = sum(
+            path.length() for entry in self.graph.values() for path in entry.values()
+        )
+        if simplified_length <= original_length * 0.9:
+            segment_names = (
+                ".".join(f"{int(x)}" for x in self.x_sequence)
+                + "_"
+                + ".".join(f"{int(x)}" for x in self.y_sequence)
+            )
             self.plot_graph()
             debug_screen(self, f"over_simplification_{segment_names}", show=False)
-            raise ValueError(f"simplified length {simplified_length} is too short compared to original length {original_length}")
+            raise ValueError(
+                f"simplified length {simplified_length} is too short compared to original length {original_length}"
+            )
 
         evaluated_edges = []
         for start_i in self.graph:
@@ -761,8 +779,6 @@ class HitomezashiFill(BaseFillExtension):
         logging.debug(
             f"after simplification the graph has {len(self.graph.keys())} nodes"
         )
-
-
 
     def audit_graph(self):
         # check whether there are points that are very close together
@@ -798,18 +814,88 @@ class HitomezashiFill(BaseFillExtension):
                 if not isinstance(self.graph[start_i][end_i], Path):
                     self.graph[start_i][end_i] = Path(self.graph[start_i][end_i])
 
-    def hitomezashi_fill(self, node):
-        # greedy algorithm: make a Hitomezashi fill that covers the entire bounding box of the shape,
-        # then go through each segment and figure out if it is inside, outside, or intersecting the shape
+    def triangular_lines(self):
+        # you need to go over three times
+        # 30 and 60 degrees left to right
+        # then one last time horizontally down to up
 
-        self.options.fill = False if self.options.fill == "false" else True
-        self.options.gradient = False if self.options.gradient == "false" else True
-        self.container = parse_path(pattern_vector_to_d(node))
+        triangle_height = math.sin(math.pi / 3) * self.options.length
+        lines = []
+        num_x = int(self.width / self.options.length)
+        if self.width / self.options.length % 1:
+            num_x += 1
+        # the height
+        num_y = int(self.height / triangle_height)
+        if self.height / self.options.length % 1:
+            num_y += 1
+        # generate horizontal lines
+        for y_i in range(num_y):
+            y_coord = y_i * self.options.length + self.ymin
+            if self.y_sequence:
+                odd_even_y = self.y_sequence[y_i % len(self.y_sequence)]
+            elif not self.options.gradient:
+                odd_even_y = random() > self.options.weight_y
+            else:
+                odd_even_y = random() > y_i / num_y
+            for x_i in range(num_x):
+                if x_i % 2 == odd_even_y:
+                    continue
 
-        self.container.approximate_arcs_with_quads()
-        self.xmin, self.xmax, self.ymin, self.ymax = self.container.bbox()
-        self.width = self.xmax - self.xmin
-        self.height = self.ymax - self.ymin
+                # make the first and last segments a little longer
+                if x_i == 0:
+                    x_i = -TOLERANCE
+                    diff = TOLERANCE * self.options.length
+                elif x_i == num_x - 1:
+                    diff = TOLERANCE * self.options.length
+                else:
+                    diff = 0
+
+                x_coord = x_i * self.options.length + self.xmin
+                if x_i % 2 == 0:
+                    x_coord += 0.5 * self.options.length
+                start = x_coord + y_coord * 1j
+                end = (x_coord + self.options.length + diff) + y_coord * 1j
+                lines.append(Line(start, end))
+                assert start != end
+
+        thirty_degree = []
+        for y_i in range(num_y):
+            if self.y_sequence:
+                thirty_degree.append(self.y_sequence[y_i % len(self.y_sequence)])
+            elif not self.options.gradient:
+                thirty_degree.append(random() > self.options.weight_y)
+            else:
+                thirty_degree.append(random() > y_i / num_y)
+        for y_i in range(num_y):
+            y_coord = y_i * triangle_height
+            for x_i in range(num_x):
+                if (x_i + thirty_degree[y_i]) % 2 == 0:
+                    continue
+                start = y_coord + x_i * self.options.length
+                end = y_coord + triangle_height + (x_i + 0.5) * self.options.length
+                lines.append(Line(start, end))
+                assert start != end
+
+        sixty_degree = []
+        for y_i in range(num_y):
+            if self.y_sequence:
+                sixty_degree.append(self.x_sequence[y_i % len(self.x_sequence)])
+            elif not self.options.gradient:
+                sixty_degree.append(random() > self.options.weight_x)
+            else:
+                sixty_degree.append(random() > y_i / num_y)
+        for y_i in range(num_y):
+            y_coord = y_i * triangle_height
+            for x_i in range(num_x):
+                if (x_i + sixty_degree[y_i]) % 2 == 0:
+                    continue
+                start = y_coord + x_i * self.options.length
+                end = y_coord - triangle_height + (x_i + 0.5) * self.options.length
+                lines.append(Line(start, end))
+                assert start != end
+        return lines
+
+    def rectilinear_lines(self):
         # generate vertical lines
         lines = []
         num_x = int(self.width / self.options.length)
@@ -874,6 +960,27 @@ class HitomezashiFill(BaseFillExtension):
                 end = (x_coord + self.options.length + diff) + y_coord * 1j
                 lines.append(Line(start, end))
                 assert start != end
+        return lines
+
+    def hitomezashi_fill(self, node):
+        # greedy algorithm: make a Hitomezashi fill that covers the entire bounding box of the shape,
+        # then go through each segment and figure out if it is inside, outside, or intersecting the shape
+        self.container = parse_path(pattern_vector_to_d(node))
+        self.container.approximate_arcs_with_quads()
+        self.options.fill = False if self.options.fill == "false" else True
+        self.options.gradient = False if self.options.gradient == "false" else True
+        self.options.triangle = False if self.options.triangle == "false" else True
+
+        self.container = parse_path(pattern_vector_to_d(node))
+
+        self.container.approximate_arcs_with_quads()
+        self.xmin, self.xmax, self.ymin, self.ymax = self.container.bbox()
+        self.width = self.xmax - self.xmin
+        self.height = self.ymax - self.ymin
+        if self.options.triangle:
+            lines = self.triangular_lines()
+        else:
+            lines = self.rectilinear_lines()
         labels = []
         if not self.options.fill:
 
@@ -947,7 +1054,11 @@ class HitomezashiFill(BaseFillExtension):
                 self.add_path_node(
                     Path(*line).d(), style=f"fill:none;stroke:blue", id=f"loop{i}"
                 )
-            segment_names = ".".join(f"{int(x)}" for x in self.x_sequence) + "_" + ".".join(f"{int(x)}" for x in self.y_sequence)
+            segment_names = (
+                ".".join(f"{int(x)}" for x in self.x_sequence)
+                + "_"
+                + ".".join(f"{int(x)}" for x in self.y_sequence)
+            )
             debug_screen(
                 self, f"two_color_failure_{segment_names}", show=self.interactive_screen
             )

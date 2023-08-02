@@ -12,7 +12,7 @@ except AttributeError:
 try:
     from svgpathtools.svg_to_paths import rect2pathd, ellipse2pathd
     from svgpathtools import Path, Line
-    from numpy import matrix
+    from numpy import matrix, ndenumerate
     from scipy.sparse.csgraph import minimum_spanning_tree
 except ImportError as err:
     import sys
@@ -255,12 +255,11 @@ def make_stack_tree(lines, debug=False):
         else:
             if debug:
                 print(f"{j} bbox is inside {i}")
+            return 1
         # if the bboxes overlap, do something more complex
         # if any of the points in path2 is inside path1, the line must be inside
         segments_inside = []
         for segment in path2:
-            loop = asyncio.ProactorEventLoop()
-            asyncio.set_event_loop(loop)
 
             intersections = intersect_over_all(segment, path1, exit_early=True)
 
@@ -280,8 +279,9 @@ def make_stack_tree(lines, debug=False):
     _matrix = [[0 for i in range(len(lines))] for j in range(len(lines))]
     for i in range(len(lines)):
         for j in range(len(lines)):
-            debug = True if i == 1 and j == 2 else False
+            debug = True #if i == 1 and j == 2 else False
             _matrix[i][j] = pairwise_comparison(i, j, debug)
+            print(f"comparing {i} to {j} {_matrix[i][j]}")
             if _matrix[i][j]:
                 raw_stack_tree[i].append(j)
         row_total = sum(_matrix[i])
@@ -289,16 +289,18 @@ def make_stack_tree(lines, debug=False):
             _matrix[i][j] *= row_total
     stack_matrix = matrix(_matrix)
     # convert to a minimum spanning tree such that each line is just in one parent
+
+    if not stack_matrix.any():
+        stack_matrix = minimum_spanning_tree(stack_matrix, overwrite=True).toarray()
     stack_tree = defaultdict(list)
     root_nodes = [i for i in range(len(lines))]
-    if not stack_matrix.any():  # no shape is inside another
-        return stack_tree, root_nodes
-    stack_matrix = minimum_spanning_tree(stack_matrix, overwrite=True).toarray()
-
-    for i, row in enumerate(stack_matrix):
-        for j, cell in enumerate(row):
-            if not cell:
-                continue
+    for i, row in ndenumerate(stack_matrix):
+        for j, cell in ndenumerate(row):
+            try:
+                if not cell:
+                    continue
+            except ValueError as v:
+                raise ValueError(f"{cell}: {v}, {stack_matrix.shape}")
             stack_tree[i].append(j)
             if (
                 i in root_nodes and j in root_nodes

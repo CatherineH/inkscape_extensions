@@ -174,7 +174,7 @@ class TestHitomezashi(TestCase):
             f"--id={target}",
             "--length=10",
             "--gradient=true",
-            "--fill=true",
+            "--fill=false",
             "--weight_x=0",
             "--weight_y=0",
             "--triangle=true",
@@ -272,3 +272,4 @@ if __name__ == "__main__":
     # TestHitomezashi().test_chain_graph()
     # TestHitomezashi().test_edges_in_between()
     # TestHitomezashi().test_graph_simplify()
+

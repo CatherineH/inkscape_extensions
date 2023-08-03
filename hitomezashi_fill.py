@@ -857,7 +857,7 @@ class HitomezashiFill(BaseFillExtension):
             num_y += 1
         # generate horizontal lines
         for y_i in range(num_y):
-            y_coord = y_i * self.options.length + self.ymin
+            y_coord = y_i * triangle_height + self.ymin
             if self.y_sequence:
                 odd_even_y = self.y_sequence[y_i % len(self.y_sequence)]
             elif not self.options.gradient:
@@ -877,7 +877,7 @@ class HitomezashiFill(BaseFillExtension):
                     diff = 0
 
                 x_coord = x_i * self.options.length + self.xmin
-                if x_i % 2 == 0:
+                if y_i % 2 == 0:
                     x_coord += 0.5 * self.options.length
                 start = x_coord + y_coord * 1j
                 end = (x_coord + self.options.length + diff) + y_coord * 1j
@@ -893,30 +893,36 @@ class HitomezashiFill(BaseFillExtension):
             else:
                 thirty_degree.append(random() > y_i / num_y)
         for y_i in range(num_y):
-            y_coord = y_i * triangle_height
+            y_coord = y_i * triangle_height + self.ymin
             for x_i in range(num_x):
                 if (x_i + thirty_degree[y_i]) % 2 == 0:
                     continue
-                start = y_coord*1j + x_i * self.options.length
-                end = (y_coord + triangle_height)*1j + (x_i + 0.5) * self.options.length
+                x_coord = x_i*self.options.length + self.xmin
+                if y_i % 2 == 0:
+                    x_coord += 0.5 * self.options.length
+                start = y_coord*1j + x_coord
+                end = (y_coord + triangle_height)*1j + x_coord + 0.5 * self.options.length
                 #lines.append(Line(start, end))
                 assert start != end
 
-        sixty_degree = []
+        sixty_degree = defaultdict(bool)
+
         for y_i in range(num_y):
-            if self.y_sequence:
-                sixty_degree.append(self.x_sequence[y_i % len(self.x_sequence)])
-            elif not self.options.gradient:
-                sixty_degree.append(random() > self.options.weight_x)
-            else:
-                sixty_degree.append(random() > y_i / num_y)
-        for y_i in range(num_y):
-            y_coord = y_i * triangle_height
+            y_coord = y_i * triangle_height + self.ymin
             for x_i in range(num_x):
-                if (x_i + sixty_degree[y_i]) % 2 == 0:
+                grid_key = (num_x - y_i) - x_i + (y_i % 2)
+                if grid_key not in sixty_degree:
+                    sixty_degree[grid_key] = random() > 0.5
+                sixty_degree[grid_key] = not sixty_degree[grid_key]
+                #if sixty_degree[grid_key]:
+                #    continue
+                if not grid_key == 0:
                     continue
-                start = y_coord*1j + x_i * self.options.length
-                end = (y_coord - triangle_height)*1j + (x_i + 0.5) * self.options.length
+                x_coord = x_i*self.options.length + self.xmin
+                if y_i % 2 == 0:
+                    x_coord += 0.5 * self.options.length
+                start = y_coord*1j + x_coord
+                end = (y_coord - triangle_height)*1j + x_coord+ 0.5 * self.options.length
                 lines.append(Line(start, end))
                 assert start != end
         assert num_before_angles < len(lines), "no new lines added!"

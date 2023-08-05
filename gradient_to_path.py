@@ -158,7 +158,7 @@ class GradientToPath(BaseFillExtension):
                 line_colors.append(self.stops_dict[start_offset])
         end_offset = None
         bin_size = None
-        for i in range(int(num_lines**0.5), 1, -1):
+        for i in range(int(num_lines ** 0.5), 1, -1):
             if num_lines % i == 0:
                 bin_size = i
                 break

@@ -272,4 +272,3 @@ if __name__ == "__main__":
     # TestHitomezashi().test_chain_graph()
     # TestHitomezashi().test_edges_in_between()
     # TestHitomezashi().test_graph_simplify()
-

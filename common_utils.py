@@ -279,7 +279,7 @@ def make_stack_tree(lines, debug=False):
     _matrix = [[0 for i in range(len(lines))] for j in range(len(lines))]
     for i in range(len(lines)):
         for j in range(len(lines)):
-            debug = True #if i == 1 and j == 2 else False
+            debug = True  # if i == 1 and j == 2 else False
             _matrix[i][j] = pairwise_comparison(i, j, debug)
             print(f"comparing {i} to {j} {_matrix[i][j]}")
             if _matrix[i][j]:

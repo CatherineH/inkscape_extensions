@@ -210,8 +210,11 @@ class GraphType(object):
 
     def total_length(self):
         return sum(
-            path.length() for entry in self._internal.values() for path in entry.values()
+            path.length()
+            for entry in self._internal.values()
+            for path in entry.values()
         )
+
 
 class HitomezashiFill(BaseFillExtension):
     def __init__(self):
@@ -634,14 +637,14 @@ class HitomezashiFill(BaseFillExtension):
                 # collapse down the outside branches
                 start_outside = outline_branches.pop()
                 end_outside = outline_branches.pop()
-                outside_edge = [*self.graph[start_outside][to_evaluate]] + [
-                    *self.graph[to_evaluate][end_outside]
+                outside_edge = [*self.graph.get(start_outside, to_evaluate)] + [
+                    *self.graph.get(to_evaluate, end_outside)
                 ]
                 if not isinstance(outside_edge, Path):
                     outside_edge = Path(*outside_edge)
                 # self.edges.append(segment)
-                self.graph[start_outside][end_outside] = outside_edge
-                self.graph[end_outside][start_outside] = outside_edge.reversed()
+                self.graph.set(start_outside, end_outside, outside_edge)
+                self.graph.set(end_outside, start_outside, outside_edge.reversed())
 
             start_i = branches[0]
             end_i = branches[1]
@@ -801,7 +804,7 @@ class HitomezashiFill(BaseFillExtension):
         for start_i in self.graph.keys():
             for end_i in self.graph.branches(start_i):
                 if {start_i, end_i} not in evaluated_edges:
-                    _path = self.graph.get(start_i,end_i)
+                    _path = self.graph.get(start_i, end_i)
                     if not isinstance(_path, Path):
                         _path = Path(_path)
                     self.edges.append(_path)
@@ -817,7 +820,9 @@ class HitomezashiFill(BaseFillExtension):
             for j, node_j in enumerate(nodes):
                 if i == j:
                     continue
-                diff = abs(self.graph.graph_locs[node_i] - self.graph.graph_locs[node_j])
+                diff = abs(
+                    self.graph.graph_locs[node_i] - self.graph.graph_locs[node_j]
+                )
                 if diff < TOLERANCE * self.options.length:
                     logging.debug(f"nodes {node_j} and {node_i} are only {diff} apart")
 
@@ -834,10 +839,10 @@ class HitomezashiFill(BaseFillExtension):
         for node in nodes:
             if not out_of_bounds(node):
                 continue
-            branches = list(self.graph[node].keys())
+            branches = self.graph.branches(node)
             for branch in branches:
-                del self.graph[branch][node]
-            del self.graph[node]
+                self.graph.delete(branch, node)
+            self.graph.delete_node(node)
 
     def triangular_lines(self):
         # you need to go over three times
@@ -884,25 +889,27 @@ class HitomezashiFill(BaseFillExtension):
                 lines.append(Line(start, end))
                 assert start != end
         num_before_angles = float(len(lines))
-        thirty_degree = []
-        for y_i in range(num_y):
-            if self.y_sequence:
-                thirty_degree.append(self.y_sequence[y_i % len(self.y_sequence)])
-            elif not self.options.gradient:
-                thirty_degree.append(random() > self.options.weight_y)
-            else:
-                thirty_degree.append(random() > y_i / num_y)
+        thirty_degree = defaultdict(bool)
+
         for y_i in range(num_y):
             y_coord = y_i * triangle_height + self.ymin
             for x_i in range(num_x):
-                if (x_i + thirty_degree[y_i]) % 2 == 0:
+                grid_key = math.ceil(y_i / 2) - x_i
+                if grid_key not in thirty_degree:
+                    thirty_degree[grid_key] = random() > 0.5
+                thirty_degree[grid_key] = not thirty_degree[grid_key]
+                if thirty_degree[grid_key]:
                     continue
-                x_coord = x_i*self.options.length + self.xmin
+                x_coord = x_i * self.options.length + self.xmin
                 if y_i % 2 == 0:
                     x_coord += 0.5 * self.options.length
-                start = y_coord*1j + x_coord
-                end = (y_coord + triangle_height)*1j + x_coord + 0.5 * self.options.length
-                #lines.append(Line(start, end))
+                start = y_coord * 1j + x_coord
+                end = (
+                    (y_coord + triangle_height) * 1j
+                    + x_coord
+                    + 0.5 * self.options.length
+                )
+                lines.append(Line(start, end))
                 assert start != end
 
         sixty_degree = defaultdict(bool)
@@ -910,19 +917,23 @@ class HitomezashiFill(BaseFillExtension):
         for y_i in range(num_y):
             y_coord = y_i * triangle_height + self.ymin
             for x_i in range(num_x):
-                grid_key = (num_x - y_i) - x_i + (y_i % 2)
+                grid_key = math.ceil((num_x - y_i) / 2) - x_i
                 if grid_key not in sixty_degree:
                     sixty_degree[grid_key] = random() > 0.5
                 sixty_degree[grid_key] = not sixty_degree[grid_key]
-                #if sixty_degree[grid_key]:
-                #    continue
-                if not grid_key == 0:
+                if sixty_degree[grid_key]:
                     continue
-                x_coord = x_i*self.options.length + self.xmin
+                # if not grid_key == 0:
+                #    continue
+                x_coord = x_i * self.options.length + self.xmin
                 if y_i % 2 == 0:
                     x_coord += 0.5 * self.options.length
-                start = y_coord*1j + x_coord
-                end = (y_coord - triangle_height)*1j + x_coord+ 0.5 * self.options.length
+                start = y_coord * 1j + x_coord
+                end = (
+                    (y_coord - triangle_height) * 1j
+                    + x_coord
+                    + 0.5 * self.options.length
+                )
                 lines.append(Line(start, end))
                 assert start != end
         assert num_before_angles < len(lines), "no new lines added!"
@@ -1022,19 +1033,19 @@ class HitomezashiFill(BaseFillExtension):
             lines = self.rectilinear_lines()
         labels = []
         if not self.options.fill:
-            #_ = [self.chop_shape(lines)]
-            #self.audit_graph()
-            #self.simplify_graph()
-            self.saved_solution = [Path(line) for line in lines] #self.edges
-            # self.saved_solution = self.chain_graph()
-            # self.saved_solution = [line.d() for line in lines]
+            _ = [self.chop_shape(lines)]
+            self.audit_graph()
+            self.simplify_graph()
+            # self.saved_solution = [Path(line) for line in lines] #self.edges
+            self.saved_solution = self.chain_graph()
+            self.saved_solution = [line.d() for line in lines]
             labels = [i for i in range(len(self.saved_solution))]
         else:
             lines = []
             curr_color = True
             start_rows = []
             # combine the lines?
-            #combined_lines = inkex.paths.Path().from_svgpathtools(lines.pop())
+            # combined_lines = inkex.paths.Path().from_svgpathtools(lines.pop())
             unmergable = []
             while lines:
                 to_combine_line1 = lines.pop()
@@ -1042,9 +1053,13 @@ class HitomezashiFill(BaseFillExtension):
                     combined_lines = to_combine_line1
                 to_combine_line2 = lines.pop()
                 if not isinstance(to_combine_line1, inkex.paths.Path):
-                    to_combine_line1 = inkex.paths.Path().from_svgpathtools(to_combine_line1)
+                    to_combine_line1 = inkex.paths.Path().from_svgpathtools(
+                        to_combine_line1
+                    )
                 if not isinstance(to_combine_line2, inkex.paths.Path):
-                    to_combine_line2 = inkex.paths.Path().from_svgpathtools(to_combine_line2)
+                    to_combine_line2 = inkex.paths.Path().from_svgpathtools(
+                        to_combine_line2
+                    )
 
                 try:
                     combined_lines = to_combine_line1.union(to_combine_line2)
@@ -1053,8 +1068,12 @@ class HitomezashiFill(BaseFillExtension):
 
                     print("combined lines", combined_lines)
                 except Exception as err:
-                    self.add_path_node(to_combine_line1.d(), style="fill:red", id="to-merge")
-                    self.add_path_node(to_combine_line2.d(), style="fill:blue", id="merged-path")
+                    self.add_path_node(
+                        to_combine_line1.d(), style="fill:red", id="to-merge"
+                    )
+                    self.add_path_node(
+                        to_combine_line2.d(), style="fill:blue", id="merged-path"
+                    )
                     debug_screen(self, name="merge_failure", show=False)
                     continue
 

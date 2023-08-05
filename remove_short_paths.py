@@ -29,7 +29,7 @@ class RemoveShortPaths(inkex.EffectExtension):
         node_container = inkex.elements.PathElement()
         node_container.set_path(surviving_path.d())
         node_container.set("style", shape.attrib.get("style"))
-        node_container.set("id", shape.attrib.get("id")+"-cutshortpath")
+        node_container.set("id", shape.attrib.get("id") + "-cutshortpath")
         shape.getparent().insert(0, node_container)
 
 

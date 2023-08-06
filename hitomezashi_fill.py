@@ -21,13 +21,10 @@ from common_utils import (
     debug_screen,
     combine_segments,
     format_complex,
-    stack_lines,
     is_inside,
     intersect_over_all,
     is_segment_diagonal,
     FOLDERNAME,
-    find_orientation,
-    svgpath_to_shapely_polygon,
 )
 from enum import Enum
 from random import random

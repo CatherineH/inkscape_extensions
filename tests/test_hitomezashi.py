@@ -9,7 +9,6 @@ from hypothesis import given, settings
 import hypothesis.strategies as st
 
 
-from common_utils import debug_screen
 from inkex.tester import TestCase
 import inkex
 import pickle

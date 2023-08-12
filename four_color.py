@@ -69,7 +69,8 @@ class FourColorFill(BaseFillExtension):
         path_id = node.get("id")
         pattern_style = node.get("style")
         color = ["red", "yellow", "blue", "green"][self.solution[path_id]]
-        pattern_style = pattern_style.replace("fill:none", f"fill:{color}")
+        pattern_style = pattern_style.replace("fill:#fce5a3", f"fill:{color}")
         if "fill" not in pattern_style:
             pattern_style += f";fill:{color}"
-        self.add_path_node(node.d(), pattern_style, path_id)
+        self.add_path_node(node.get("d"), pattern_style, path_id)
+        self.remove_path_node(node)

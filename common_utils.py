@@ -97,6 +97,9 @@ class BaseFillExtension(inkex.EffectExtension):
             _node.set("transform", self.current_shape.get("transform"))
         parent.insert(-1, _node)
 
+    def remove_path_node(self, node):
+        del node
+
     def add_marker(self, point, label="marker", color="red"):
         marker_size = self.options.length / 10
 

@@ -17,8 +17,15 @@ class TestFourColor(TestCase):
     def test_basic(self):
         _file = "triangle_hitomezashi.svg"
         input_xml = ElementTree.parse(self.data_file(_file))
-        _nodes = input_xml.findall("path")
+        root = input_xml.getroot()
+        target_tag = None
+        _nodes = []
+        for child in root:
+            if child.tag[-1] == "g":
+                _nodes += list(child)
+        assert _nodes
         targets = [f"--id={_node.get('id')}" for _node in _nodes]
+        assert targets
         args = targets + [self.data_file(_file)]
         effect = self.effect_class()
         effect.run(args)
